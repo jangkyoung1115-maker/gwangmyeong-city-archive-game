@@ -7,112 +7,53 @@
     <!-- Pretendard 폰트 & FontAwesome 아이콘 -->
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard/dist/web/static/pretendard.css">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
-    
+    <!-- 사진 EXIF(GPS 메타데이터) 파서 라이브러리 -->
+    <script src="https://cdn.jsdelivr.net/npm/exif-js"></script>
+
     <style>
         * { box-sizing: border-box; margin: 0; padding: 0; font-family: 'Pretendard', sans-serif; }
         html, body { width: 100%; height: 100%; background-color: #0f1115; color: #f3f4f6; overflow: hidden; }
 
-        /* 상단 헤더 */
         header {
-            height: 50px;
-            background: #181b22;
-            border-bottom: 1px solid #2d323e;
-            display: flex;
-            align-items: center;
-            justify-content: space-between;
-            padding: 0 16px;
-            z-index: 100;
+            height: 50px; background: #181b22; border-bottom: 1px solid #2d323e;
+            display: flex; align-items: center; justify-content: space-between; padding: 0 16px; z-index: 100;
         }
         .logo { font-size: 1rem; font-weight: 800; color: #60a5fa; display: flex; align-items: center; gap: 6px; }
         .logo i { color: #f59e0b; }
-        .header-info { font-size: 0.75rem; color: #9ca3af; }
 
-        /* 메인 컨테이너 (모바일 수직 분할) */
-        #main-container {
-            display: flex;
-            flex-direction: column;
-            height: calc(100vh - 50px);
-            width: 100%;
-        }
+        #main-container { display: flex; flex-direction: column; height: calc(100vh - 50px); width: 100%; }
 
-        /* 상단: 지도 및 로드뷰 화면 (화면 높이의 45% 확보) */
+        /* 상단: 지도 및 로드뷰 화면 */
         #view-section {
-            height: 45vh;
-            min-height: 250px;
-            width: 100%;
-            position: relative;
-            background: #000;
+            height: 45vh; min-height: 250px; width: 100%; position: relative; background: #181b22;
             border-bottom: 2px solid #2d323e;
         }
-        #map, #roadview-container {
-            width: 100%;
-            height: 100%;
-            position: absolute;
-            top: 0;
-            left: 0;
-        }
-        #roadview-container { display: none; } /* 지도 기본 표시 */
+        #map, #roadview-container { width: 100%; height: 100%; position: absolute; top: 0; left: 0; }
+        #roadview-container { display: none; }
 
-        /* 뷰 전환 탭 (지도 <-> 로드뷰) */
         .view-toggle {
-            position: absolute;
-            top: 12px;
-            right: 12px;
-            z-index: 20;
-            background: rgba(24, 27, 34, 0.9);
-            border: 1px solid #3b82f6;
-            border-radius: 20px;
-            padding: 4px;
-            display: flex;
-            gap: 4px;
+            position: absolute; top: 12px; right: 12px; z-index: 20;
+            background: rgba(24, 27, 34, 0.9); border: 1px solid #3b82f6; border-radius: 20px;
+            padding: 4px; display: flex; gap: 4px;
         }
         .toggle-btn {
-            background: none;
-            border: none;
-            color: #9ca3af;
-            padding: 6px 12px;
-            font-size: 0.75rem;
-            font-weight: 700;
-            border-radius: 16px;
-            cursor: pointer;
+            background: none; border: none; color: #9ca3af; padding: 6px 12px;
+            font-size: 0.75rem; font-weight: 700; border-radius: 16px; cursor: pointer;
         }
-        .toggle-btn.active {
-            background: #2563eb;
-            color: #fff;
-        }
+        .toggle-btn.active { background: #2563eb; color: #fff; }
 
-        /* 하단: 시간의 지층 아카이브 패널 (스크롤 가능) */
-        #strata-panel {
-            flex: 1;
-            background: #14171d;
-            display: flex;
-            flex-direction: column;
-            padding: 16px;
-            overflow-y: auto;
-        }
-
+        /* 하단: 시간의 지층 아카이브 패널 */
+        #strata-panel { flex: 1; background: #14171d; display: flex; flex-direction: column; padding: 16px; overflow-y: auto; }
         .panel-header { margin-bottom: 12px; }
         .panel-header h2 { font-size: 1.05rem; color: #fff; margin-bottom: 2px; display: flex; align-items: center; gap: 6px; }
         .panel-header p { font-size: 0.78rem; color: #8b949e; line-height: 1.3; }
 
-        /* 기여 버튼 */
         .upload-btn {
-            background: #2563eb;
-            color: white;
-            padding: 10px;
-            border: none;
-            border-radius: 8px;
-            font-weight: 700;
-            font-size: 0.85rem;
-            cursor: pointer;
-            margin-bottom: 16px;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            gap: 6px;
+            background: #2563eb; color: white; padding: 12px; border: none; border-radius: 8px;
+            font-weight: 700; font-size: 0.85rem; cursor: pointer; margin-bottom: 16px;
+            display: flex; align-items: center; justify-content: center; gap: 6px;
         }
 
-        /* 수직 지층 타임라인 */
         .strata-timeline { display: flex; flex-direction: column; gap: 12px; position: relative; }
         .strata-timeline::before {
             content: ''; position: absolute; left: 13px; top: 8px; bottom: 8px;
@@ -121,22 +62,34 @@
 
         .strata-card {
             position: relative; z-index: 2; background: #1c212b; border: 1px solid #2d323e;
-            border-radius: 10px; padding: 10px 10px 10px 32px;
+            border-radius: 10px; padding: 12px 12px 12px 34px;
         }
+        .strata-card.user-seed { border: 2px solid #3b82f6; background: #182232; }
         .strata-node {
-            position: absolute; left: 8px; top: 14px; width: 10px; height: 10px;
+            position: absolute; left: 8px; top: 16px; width: 10px; height: 10px;
             border-radius: 50%; background: #3b82f6; border: 2px solid #14171d; z-index: 3;
         }
         .strata-card.past .strata-node { background: #f59e0b; }
 
-        .strata-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 4px; }
+        .strata-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px; }
         .strata-year { font-size: 0.9rem; font-weight: 700; color: #60a5fa; }
         .strata-card.past .strata-year { color: #f59e0b; }
         .strata-tag { font-size: 0.7rem; padding: 2px 6px; border-radius: 4px; background: #2d323e; color: #9ca3af; }
 
+        .strata-img { width: 100%; max-height: 180px; object-fit: cover; border-radius: 6px; margin-top: 6px; margin-bottom: 6px; }
         .strata-desc { font-size: 0.8rem; color: #d1d5db; line-height: 1.35; }
 
-        /* PC 모니터 대응 레이아웃 확장 */
+        /* 수정/삭제 관리 버튼 영역 */
+        .user-action-btns {
+            display: flex; gap: 8px; justify-content: flex-end; margin-top: 8px; border-top: 1px dashed #2d323e; padding-top: 8px;
+        }
+        .btn-action {
+            background: none; border: 1px solid #374151; color: #9ca3af; padding: 4px 8px;
+            font-size: 0.72rem; border-radius: 4px; cursor: pointer; display: flex; align-items: center; gap: 4px;
+        }
+        .btn-action:hover { color: #fff; border-color: #60a5fa; }
+        .btn-action.delete:hover { color: #fca5a5; border-color: #ef4444; }
+
         @media (min-width: 768px) {
             #main-container { flex-direction: row; }
             #view-section { height: 100%; flex: 1; border-bottom: none; border-right: 2px solid #2d323e; }
@@ -151,13 +104,9 @@
         <i class="fa-solid fa-layer-group"></i>
         <span>광명시 시간의 지층</span>
     </div>
-    <div class="header-info">
-        📍 도시 아카이브
-    </div>
 </header>
 
 <div id="main-container">
-    <!-- 상단: 지도 / 로드뷰 화면 -->
     <div id="view-section">
         <div class="view-toggle">
             <button class="toggle-btn active" id="btn-map" onclick="switchView('map')">🗺️ 지도</button>
@@ -167,57 +116,48 @@
         <div id="roadview-container"></div>
     </div>
 
-    <!-- 하단: 지층 정보 스크롤 패널 -->
     <div id="strata-panel">
         <div class="panel-header">
             <h2 id="loc-title"><i class="fa-solid fa-location-dot" style="color:#ef4444;"></i> 광명시 시공간 지층</h2>
-            <p id="loc-desc">지도를 터치하면 해당 위치의 로드뷰와 연도별 역사 지층이 나타납니다.</p>
+            <p id="loc-desc">사진을 올려 지층 씨앗을 심으면 GPS 좌표 기반으로 로드뷰 과거 지층이 구성됩니다.</p>
         </div>
 
         <button class="upload-btn" onclick="document.getElementById('file-input').click()">
-            <i class="fa-solid fa-plus"></i> 이 위치에 사진 지층 추가
+            <i class="fa-solid fa-camera"></i> 내 사진 업로드하여 지층 생성
         </button>
-        <input type="file" id="file-input" accept="image/*" style="display:none;" onchange="uploadUserPhoto(event)">
+        <input type="file" id="file-input" accept="image/*" style="display:none;" onchange="handlePhotoSeedUpload(event)">
 
-        <!-- 수직 지층 스택 -->
-        <div class="strata-timeline" id="strata-list">
-            <!-- 동적 생성 -->
-        </div>
+        <div class="strata-timeline" id="strata-list"></div>
     </div>
 </div>
 
 <!-- 카카오맵 SDK 연동 -->
-<script type="text/javascript" src="//dapi.kakao.com/v2/maps/sdk.js?appkey=bd83a6ca29e1fbf4fa5da49d88125054&libraries=services"></script>
+<script type="text/javascript" src="//dapi.kakao.com/v2/maps/sdk.js?appkey=YOUR_KAKAO_JAVASCRIPT_KEY&libraries=services"></script>
 
 <script>
-    let map, roadview, roadviewClient;
+    let map, roadview, roadviewClient, currentMarker = null;
     const GM_CENTER = { lat: 37.4786, lng: 126.8645 };
+    let currentPos = { lat: GM_CENTER.lat, lng: GM_CENTER.lng };
 
     function initMap() {
         const container = document.getElementById('map');
-        const options = {
+        map = new kakao.maps.Map(container, {
             center: new kakao.maps.LatLng(GM_CENTER.lat, GM_CENTER.lng),
             level: 4
-        };
+        });
 
-        map = new kakao.maps.Map(container, options);
-
-        // 로드뷰 초기화
         const rvContainer = document.getElementById('roadview-container');
         roadview = new kakao.maps.Roadview(rvContainer);
         roadviewClient = new kakao.maps.RoadviewClient();
 
-        // 지도 터치/클릭 시 로드뷰 및 지층 데이터 로드
         kakao.maps.event.addListener(map, 'click', function(mouseEvent) {
             const latLng = mouseEvent.getLatLng();
-            loadRoadviewAt(latLng.getLat(), latLng.getLng());
+            loadLocationStrata(latLng.getLat(), latLng.getLng());
         });
 
-        // 초기 지층 목록 표시
-        updateStrataInfo("광명사거리 주변", "지도를 클릭하면 해당 장소의 연도별 지층 데이터가 표시됩니다.");
+        loadLocationStrata(GM_CENTER.lat, GM_CENTER.lng);
     }
 
-    // 지도 <-> 로드뷰 화면 전환
     function switchView(mode) {
         const mapEl = document.getElementById('map');
         const rvEl = document.getElementById('roadview-container');
@@ -225,72 +165,163 @@
         const btnRv = document.getElementById('btn-rv');
 
         if (mode === 'map') {
-            mapEl.style.display = 'block';
-            rvEl.style.display = 'none';
-            btnMap.classList.add('active');
-            btnRv.classList.remove('active');
+            mapEl.style.display = 'block'; rvEl.style.display = 'none';
+            btnMap.classList.add('active'); btnRv.classList.remove('active');
         } else {
-            mapEl.style.display = 'none';
-            rvEl.style.display = 'block';
-            btnRv.classList.add('active');
-            btnMap.classList.remove('active');
+            mapEl.style.display = 'none'; rvEl.style.display = 'block';
+            btnMap.classList.remove('active'); btnRv.classList.add('active');
         }
     }
 
-    function loadRoadviewAt(lat, lng) {
-        const position = new kakao.maps.LatLng(lat, lng);
-        roadviewClient.getNearestPanoId(position, 50, function(panoId) {
+    // 업로드한 사진 처리 및 로컬 저장소 등록
+    function handlePhotoSeedUpload(event) {
+        const file = event.target.files[0];
+        if (!file) return;
+
+        const reader = new FileReader();
+        reader.onload = function(e) {
+            const imgDataUrl = e.target.result;
+
+            EXIF.getData(file, function() {
+                const lat = EXIF.getTag(this, "GPSLatitude");
+                const lon = EXIF.getTag(this, "GPSLongitude");
+
+                let coords = { lat: currentPos.lat, lng: currentPos.lng };
+
+                if (lat && lon) {
+                    const latRef = EXIF.getTag(this, "GPSLatitudeRef") || "N";
+                    const lonRef = EXIF.getTag(this, "GPSLongitudeRef") || "E";
+                    coords.lat = (lat[0] + lat[1]/60 + lat[2]/3600) * (latRef === "N" ? 1 : -1);
+                    coords.lng = (lon[0] + lon[1]/60 + lon[2]/3600) * (lonRef === "E" ? 1 : -1);
+                }
+
+                const userDesc = prompt("이 사진 지층에 남길 설명을 입력하세요:", "유저가 직접 기록한 장소의 순간입니다.");
+                if (userDesc === null) return;
+
+                const newSeed = {
+                    id: Date.now(),
+                    img: imgDataUrl,
+                    desc: userDesc || "기록된 설명이 없습니다.",
+                    date: new Date().toLocaleDateString('ko-KR') + " (유저 기여)",
+                    lat: coords.lat,
+                    lng: coords.lng
+                };
+
+                // 로컬 스토리지에 유저 지층 저장
+                saveUserSeed(newSeed);
+                loadLocationStrata(coords.lat, coords.lng);
+            });
+        };
+        reader.readAsDataURL(file);
+    }
+
+    // 로컬 스토리지 관련 함수 (지층 저장/불러오기/수정/삭제)
+    function getUserSeeds() {
+        return JSON.parse(localStorage.getItem('gm_time_strata_seeds') || '[]');
+    }
+
+    function saveUserSeed(seed) {
+        const seeds = getUserSeeds();
+        seeds.unshift(seed);
+        localStorage.setItem('gm_time_strata_seeds', JSON.stringify(seeds));
+    }
+
+    function editUserSeed(id) {
+        const seeds = getUserSeeds();
+        const target = seeds.find(s => s.id === id);
+        if (!target) return;
+
+        const newDesc = prompt("지층 설명 수정:", target.desc);
+        if (newDesc !== null) {
+            target.desc = newDesc;
+            localStorage.setItem('gm_time_strata_seeds', JSON.stringify(seeds));
+            loadLocationStrata(currentPos.lat, currentPos.lng);
+        }
+    }
+
+    function deleteUserSeed(id) {
+        if (confirm("이 유저 사진 지층을 정말 삭제하시겠습니까?")) {
+            let seeds = getUserSeeds();
+            seeds = seeds.filter(s => s.id !== id);
+            localStorage.setItem('gm_time_strata_seeds', JSON.stringify(seeds));
+            loadLocationStrata(currentPos.lat, currentPos.lng);
+        }
+    }
+
+    function loadLocationStrata(lat, lng) {
+        currentPos = { lat, lng };
+        const pos = new kakao.maps.LatLng(lat, lng);
+        map.panTo(pos);
+
+        if (currentMarker) currentMarker.setMap(null);
+        currentMarker = new kakao.maps.Marker({ position: pos, map: map });
+
+        roadviewClient.getNearestPanoId(pos, 50, function(panoId) {
             if (panoId) {
-                roadview.setPanoId(panoId, position);
-                switchView('rv'); // 로드뷰가 존재하면 로드뷰 화면으로 자동 전환
-                updateStrataInfo("선택한 위치 지층", "카카오 과거 로드뷰 및 지층 데이터가 조회되었습니다.");
-            } else {
-                alert("해당 위치에는 로드뷰 데이터가 없습니다. 다른 도로변을 선택해 주세요.");
+                roadview.setPanoId(panoId, pos);
             }
+            renderStrataStack();
         });
     }
 
-    function updateStrataInfo(title, desc) {
-        document.getElementById('loc-title').innerHTML = `<i class="fa-solid fa-location-dot" style="color:#ef4444;"></i> ${title}`;
-        document.getElementById('loc-desc').innerText = desc;
-
-        const strataData = [
-            { year: "2026년 (현재)", tag: "카카오 로드뷰", desc: "현재 도시 풍경 및 건물 현황" },
-            { year: "2021년 지층", tag: "카카오 과거 기록", desc: "재개발 및 도로 정비 진행 시기", isPast: true },
-            { year: "2012년 지층", tag: "카카오 과거 기록", desc: "구도심 상가 및 옛 골목 형태 보존 시기", isPast: true },
-            { year: "2008년 기초 지층", tag: "최초 수집 기록", desc: "광명시 초기 로드뷰 수집 파노라마 기록", isPast: true }
-        ];
-
+    function renderStrataStack() {
         const list = document.getElementById('strata-list');
         list.innerHTML = '';
 
+        let strataData = [];
+
+        // 유저 등록 데이터 로드
+        const seeds = getUserSeeds();
+        seeds.forEach(seed => {
+            strataData.push({
+                id: seed.id,
+                year: seed.date,
+                tag: "시민 아카이브",
+                desc: seed.desc,
+                img: seed.img,
+                isUser: true
+            });
+        });
+
+        // 카카오 로드뷰 과거 데이터 배치
+        strataData.push(
+            { year: "2026년 (현재)", tag: "카카오 로드뷰", desc: "현재 도로 및 건물 현황 기록" },
+            { year: "2021년 지층", tag: "카카오 과거 기록", desc: "재개발/정비 진행 시기", isPast: true },
+            { year: "2012년 지층", tag: "카카오 과거 기록", desc: "옛 구도심 건물 형태 보존 시기", isPast: true },
+            { year: "2008년 기초 지층", tag: "카카오 최초 파노라마", desc: "초기 로드뷰 구축 기록", isPast: true }
+        );
+
         strataData.forEach(item => {
             const card = document.createElement('div');
-            card.className = `strata-card ${item.isPast ? 'past' : ''}`;
+            card.className = `strata-card ${item.isUser ? 'user-seed' : ''} ${item.isPast ? 'past' : ''}`;
+            
+            let imgHTML = item.img ? `<img class="strata-img" src="${item.img}">` : '';
+            let actionHTML = item.isUser ? `
+                <div class="user-action-btns">
+                    <button class="btn-action" onclick="editUserSeed(${item.id})"><i class="fa-solid fa-pen"></i> 수정</button>
+                    <button class="btn-action delete" onclick="deleteUserSeed(${item.id})"><i class="fa-solid fa-trash"></i> 삭제</button>
+                </div>
+            ` : '';
+
             card.innerHTML = `
                 <div class="strata-node"></div>
                 <div class="strata-header">
                     <span class="strata-year">${item.year}</span>
                     <span class="strata-tag">${item.tag}</span>
                 </div>
+                ${imgHTML}
                 <div class="strata-desc">${item.desc}</div>
+                ${actionHTML}
             `;
             list.appendChild(card);
         });
-    }
-
-    function uploadUserPhoto(event) {
-        const file = event.target.files[0];
-        if (file) {
-            alert("📸 사진 지층이 기여되었습니다! 위치 검토 후 지층에 추가됩니다.");
-        }
     }
 
     window.onload = function() {
         if (typeof kakao !== 'undefined' && kakao.maps) {
             initMap();
         } else {
-            document.getElementById('map').innerHTML = '<div style="padding:20px; color:#ef4444; font-size:0.85rem;">카카오 지도 API 키를 연동해 주세요.</div>';
+            document.getElementById('map').innerHTML = '<div style="padding:20px; color:#ef4444; font-size:0.85rem;">카카오 도메인 설정 또는 API 키를 확인해 주세요.</div>';
         }
     };
 </script>
