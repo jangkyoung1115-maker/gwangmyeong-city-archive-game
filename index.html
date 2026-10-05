@@ -129,12 +129,12 @@
     </div>
 </div>
 
-<!-- 카카오맵 SDK (전달받으신 JavaScript 키 적용 완료) -->
-<script type="text/javascript" src="//dapi.kakao.com/v2/maps/sdk.js?appkey=bd83a6ca29e1fbf4fa5da49d88125054&libraries=services"></script>
+<!-- 카카오맵 SDK (자바스크립트 키 적용 완료) -->
+<script type="text/javascript" src="//dapi.kakao.com/v2/maps/sdk.js?appkey=Bd83a6ca29e1fbf4fa5da49d88125054&libraries=services"></script>
 
 <script>
     let map, roadview, roadviewClient, currentMarker = null;
-    const GM_CENTER = { lat: 37.4786, lng: 126.8645 }; // 광명시청 중심 좌표
+    const GM_CENTER = { lat: 37.4786, lng: 126.8645 };
 
     let userStrataStore = [];
 
@@ -312,7 +312,7 @@
         if (typeof kakao !== 'undefined' && kakao.maps) {
             initMap();
         } else {
-            document.getElementById('map').innerHTML = '<div style="padding:20px; color:#ef4444; font-size:0.85rem;">카카오 도메인(https://jangkyoung1.github.io) 설정 또는 API 키를 확인해 주세요.</div>';
+            document.getElementById('map').innerHTML = '<div style="padding:20px; color:#ef4444; font-size:0.85rem;">카카오 도메인(https://jangkyoung1115-maker.github.io) 설정 또는 API 키를 확인해 주세요.</div>';
         }
     };
 </script>
