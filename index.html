@@ -23,19 +23,24 @@
 
         #main-container { display: flex; flex-direction: column; height: calc(100vh - 50px); width: 100%; }
 
-        /* 지도 영역 */
-        #map-section {
-            height: 40vh; min-height: 220px; width: 100%; position: relative; background: #181b22;
+        /* 상단 지도 & 로드뷰 영역 */
+        #view-section {
+            height: 42vh; min-height: 240px; width: 100%; position: relative; background: #181b22;
             border-bottom: 2px solid #2d323e;
         }
-        #map { width: 100%; height: 100%; }
+        #map, #roadview-container { width: 100%; height: 100%; position: absolute; top: 0; left: 0; }
+        #roadview-container { display: none; }
 
-        .map-instruction {
-            position: absolute; top: 12px; left: 12px; z-index: 10;
-            background: rgba(24, 27, 34, 0.85); border: 1px solid #3b82f6; border-radius: 20px;
-            padding: 6px 12px; font-size: 0.75rem; color: #60a5fa; font-weight: 600;
-            pointer-events: none;
+        .view-toggle {
+            position: absolute; top: 12px; right: 12px; z-index: 20;
+            background: rgba(24, 27, 34, 0.9); border: 1px solid #3b82f6; border-radius: 20px;
+            padding: 4px; display: flex; gap: 4px;
         }
+        .toggle-btn {
+            background: none; border: none; color: #9ca3af; padding: 6px 12px;
+            font-size: 0.75rem; font-weight: 700; border-radius: 16px; cursor: pointer;
+        }
+        .toggle-btn.active { background: #2563eb; color: #fff; }
 
         /* 하단 지층 아카이브 패널 */
         #strata-panel { flex: 1; background: #14171d; display: flex; flex-direction: column; padding: 16px; overflow-y: auto; }
@@ -44,10 +49,10 @@
         .panel-header h2 { font-size: 1.05rem; color: #fff; margin-bottom: 2px; display: flex; align-items: center; gap: 6px; }
         .panel-header p { font-size: 0.78rem; color: #8b949e; line-height: 1.35; }
 
-        /* 필터 및 구역 표시 */
         .area-badge {
-            display: inline-flex; align-items: center; gap: 4px; background: #2563eb; color: #fff;
-            padding: 4px 10px; border-radius: 12px; font-size: 0.8rem; font-weight: 700; margin-bottom: 12px;
+            display: inline-flex; align-items: center; gap: 6px; background: rgba(37, 99, 235, 0.2);
+            color: #60a5fa; border: 1px solid rgba(59, 130, 246, 0.4); padding: 6px 12px;
+            border-radius: 16px; font-size: 0.82rem; font-weight: 700; margin-bottom: 12px; width: fit-content;
         }
 
         .upload-btn {
@@ -77,9 +82,9 @@
 
         .strata-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 4px; }
         .strata-year { font-size: 0.95rem; font-weight: 800; color: #60a5fa; display: flex; align-items: center; gap: 6px; }
-        .strata-area-tag { font-size: 0.72rem; padding: 2px 6px; border-radius: 4px; background: rgba(59, 130, 246, 0.2); color: #93c5fd; border: 1px solid rgba(59, 130, 246, 0.4); }
+        .strata-area-tag { font-size: 0.72rem; padding: 2px 6px; border-radius: 4px; background: rgba(245, 158, 11, 0.15); color: #fbbf24; border: 1px solid rgba(245, 158, 11, 0.3); }
 
-        .strata-date { font-size: 0.75rem; color: #f59e0b; font-weight: 600; margin-bottom: 6px; }
+        .strata-date { font-size: 0.75rem; color: #9ca3af; margin-bottom: 6px; }
 
         .strata-img-wrap { position: relative; width: 100%; margin: 8px 0; border-radius: 6px; overflow: hidden; background: #0f1115; }
         .strata-img { width: 100%; max-height: 220px; object-fit: cover; display: block; cursor: pointer; transition: transform 0.2s; }
@@ -99,7 +104,7 @@
 
         @media (min-width: 768px) {
             #main-container { flex-direction: row; }
-            #map-section { height: 100%; flex: 1; border-bottom: none; border-right: 2px solid #2d323e; }
+            #view-section { height: 100%; flex: 1; border-bottom: none; border-right: 2px solid #2d323e; }
             #strata-panel { width: 420px; flex: none; }
         }
     </style>
@@ -114,19 +119,23 @@
 </header>
 
 <div id="main-container">
-    <div id="map-section">
-        <div class="map-instruction"><i class="fa-solid fa-location-dot"></i> 지도의 구역 마커나 장소를 클릭하세요</div>
+    <div id="view-section">
+        <div class="view-toggle">
+            <button class="toggle-btn active" id="btn-map" onclick="switchView('map')">🗺️️ 지도</button>
+            <button class="toggle-btn" id="btn-rv" onclick="switchView('rv')">📷 현재 로드뷰</button>
+        </div>
         <div id="map"></div>
+        <div id="roadview-container"></div>
     </div>
 
     <div id="strata-panel">
         <div class="panel-header">
-            <h2 id="loc-title"><i class="fa-solid fa-clock-history" style="color:#f59e0b;"></i> 광명시 시공간 지층 기록</h2>
-            <p id="loc-desc">시민들이 기록한 구역별 과거 사진들이 시간의 지층으로 누적됩니다.</p>
+            <h2 id="loc-title"><i class="fa-solid fa-clock-rotate-left" style="color:#f59e0b;"></i> 구역별 과거 사진 지층</h2>
+            <p id="loc-desc">상단에는 현재 로드뷰가, 하단에는 시민들이 기록한 연도별 과거 사진들이 축적됩니다.</p>
         </div>
 
         <div id="selected-area-display" class="area-badge">
-            <i class="fa-solid fa-map-pin"></i> <span id="current-area-name">전체 구역 지층 보기</span>
+            <i class="fa-solid fa-location-dot"></i> <span id="current-area-name">전체 구역 지층 보기</span>
         </div>
 
         <button class="upload-btn" onclick="document.getElementById('file-input').click()">
@@ -148,22 +157,21 @@
 <script type="text/javascript" src="//dapi.kakao.com/v2/maps/sdk.js?appkey=Bd83a6ca29e1fbf4fa5da49d88125054&libraries=services"></script>
 
 <script>
-    let map;
-    let markers = [];
-    let selectedArea = null; // 선택된 구역 필터
+    let map, roadview, roadviewClient, currentMarker = null;
+    let selectedArea = null;
+    let currentLatLng = null;
     const GM_CENTER = { lat: 37.4786, lng: 126.8645 };
 
-    // 로컬 스토리지에 유저 데이터 영구 저장
-    const STORAGE_KEY = 'GM_STRATA_USER_SEEDS_V2';
-    
-    // 초기 기본 샘플 지층 데이터 (구역 단위 예시)
+    const STORAGE_KEY = 'GM_STRATA_USER_SEEDS_V3';
+
+    // 기본 샘플 데이터
     const initialSampleData = [
         {
             id: 1,
             areaName: "철산주공 13단지 1324동 부근",
             year: "1998년",
             photoDate: "1998-05-10",
-            desc: "철산주공 13단지 조성 초기의 단지 내 전경입니다. 수목이 울창해지기 전 모습이 인상적입니다.",
+            desc: "철산주공 13단지 조성 초기의 모습입니다.",
             img: "https://images.unsplash.com/photo-1542601906990-b4d3fb778b09?w=600&auto=format&fit=crop&q=60",
             lat: 37.4795,
             lng: 126.8650
@@ -173,7 +181,7 @@
             areaName: "철산주공 13단지 1324동 부근",
             year: "2015년",
             photoDate: "2015-10-20",
-            desc: "단지 단풍나무가 크게 자란 가을날의 1324동 보행로 풍경입니다.",
+            desc: "수목이 무성해진 가을날의 1324동 부근 단지 풍경입니다.",
             img: "https://images.unsplash.com/photo-1512917774080-9991f1c4c750?w=600&auto=format&fit=crop&q=60",
             lat: 37.4795,
             lng: 126.8650
@@ -183,7 +191,7 @@
             areaName: "광명사거리역 전통시장 입구",
             year: "2008년",
             photoDate: "2008-03-15",
-            desc: "현대화 사업 이전 광명 전통시장 정문 거리의 활기찬 모습입니다.",
+            desc: "현대화 사업 이전 광명 전통시장 정문 거리 모습입니다.",
             img: "https://images.unsplash.com/photo-1448630360428-65456885c650?w=600&auto=format&fit=crop&q=60",
             lat: 37.4790,
             lng: 126.8548
@@ -207,24 +215,55 @@
             level: 4
         });
 
-        // 지도 클릭 시
+        const rvContainer = document.getElementById('roadview-container');
+        roadview = new kakao.maps.Roadview(rvContainer);
+        roadviewClient = new kakao.maps.RoadviewClient();
+
         kakao.maps.event.addListener(map, 'click', function(mouseEvent) {
-            selectedArea = null; // 구역 선택 해제 (전체 보기)
-            document.getElementById('current-area-name').innerText = "전체 구역 지층 보기";
-            renderStrataTimeline();
+            const latLng = mouseEvent.getLatLng();
+            loadRoadviewAndArea(latLng.getLat(), latLng.getLng(), null);
         });
 
+        loadRoadviewAndArea(GM_CENTER.lat, GM_CENTER.lng, null);
         updateMapMarkers();
+    }
+
+    function switchView(mode) {
+        const mapEl = document.getElementById('map');
+        const rvEl = document.getElementById('roadview-container');
+        const btnMap = document.getElementById('btn-map');
+        const btnRv = document.getElementById('btn-rv');
+
+        if (mode === 'map') {
+            mapEl.style.display = 'block'; rvEl.style.display = 'none';
+            btnMap.classList.add('active'); btnRv.classList.remove('active');
+        } else {
+            mapEl.style.display = 'none'; rvEl.style.display = 'block';
+            btnRv.classList.add('active'); btnMap.classList.remove('active');
+            roadview.relayout();
+        }
+    }
+
+    function loadRoadviewAndArea(lat, lng, areaName) {
+        currentLatLng = new kakao.maps.LatLng(lat, lng);
+        map.panTo(currentLatLng);
+
+        if (currentMarker) currentMarker.setMap(null);
+        currentMarker = new kakao.maps.Marker({ position: currentLatLng, map: map });
+
+        // 상단 최신 로드뷰 로드
+        roadviewClient.getNearestPanoId(currentLatLng, 50, function(panoId) {
+            if (panoId) {
+                roadview.setPanoId(panoId, currentLatLng);
+            }
+        });
+
+        selectedArea = areaName;
+        document.getElementById('current-area-name').innerText = areaName ? `📍 ${areaName}` : "전체 구역 지층 보기";
         renderStrataTimeline();
     }
 
-    // 구역별 마커 업데이트
     function updateMapMarkers() {
-        // 기존 마커 제거
-        markers.forEach(m => m.setMap(null));
-        markers = [];
-
-        // 구역별 중복 좌표 제거하여 마커 생성
         const areaMap = new Map();
         userStrataStore.forEach(item => {
             if (!areaMap.has(item.areaName)) {
@@ -233,38 +272,29 @@
         });
 
         areaMap.forEach(area => {
-            const markerPosition = new kakao.maps.LatLng(area.lat, area.lng);
             const marker = new kakao.maps.Marker({
-                position: markerPosition,
+                position: new kakao.maps.LatLng(area.lat, area.lng),
                 map: map,
                 title: area.areaName
             });
 
             kakao.maps.event.addListener(marker, 'click', function() {
-                filterByArea(area.areaName);
+                loadRoadviewAndArea(area.lat, area.lng, area.areaName);
+                switchView('rv'); // 마커 클릭 시 바로 현재 로드뷰 확인 가능
             });
-
-            markers.push(marker);
         });
-    }
-
-    function filterByArea(areaName) {
-        selectedArea = areaName;
-        document.getElementById('current-area-name').innerText = `📍 ${areaName}`;
-        renderStrataTimeline();
     }
 
     function handlePhotoSeedUpload(event) {
         const file = event.target.files[0];
         if (!file) return;
 
-        // 1. 구역 입력받기 (기본값 제공)
         const defaultArea = selectedArea || "철산주공 13단지 1324동 부근";
-        const areaName = prompt("이 사진이 속한 구역/건물/거점 이름을 입력하세요:\n(예: 철산주공 13단지 1324동 부근, 광명사거리역 3번출구 등)", defaultArea);
+        const areaName = prompt("사진의 구역/건물 이름을 입력하세요:\n(예: 철산주공 13단지 1324동 부근 등)", defaultArea);
         if (!areaName) return;
 
-        const year = prompt("사진의 연도/시기를 입력하세요 (예: 2012년, 1995년 등):") || "과거 기록";
-        const desc = prompt("이 구역과 사진에 관한 추억이나 이야기를 적어주세요:") || "시민이 아카이브한 시간의 지층 사진입니다.";
+        const year = prompt("사진 연도 (예: 2012년, 1995년):") || "과거 기록";
+        const desc = prompt("사진과 장소에 관한 메모:") || "시민이 아카이브한 시간의 지층 사진입니다.";
 
         const reader = new FileReader();
         reader.onload = function(e) {
@@ -284,8 +314,7 @@
                     formattedDate = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`;
                 }
 
-                // 현재 지도 중심 좌표 또는 설정된 좌표
-                const center = map.getCenter();
+                const center = currentLatLng || map.getCenter();
 
                 const newSeed = {
                     id: Date.now(),
@@ -301,7 +330,7 @@
                 userStrataStore.unshift(newSeed);
                 saveUserSeeds();
                 updateMapMarkers();
-                filterByArea(areaName);
+                loadRoadviewAndArea(center.getLat(), center.getLng(), areaName);
             });
         };
         reader.readAsDataURL(file);
@@ -311,14 +340,13 @@
         const list = document.getElementById('strata-list');
         list.innerHTML = '';
 
-        // 필터링 적용
         let itemsToDisplay = userStrataStore;
         if (selectedArea) {
             itemsToDisplay = userStrataStore.filter(item => item.areaName === selectedArea);
         }
 
         if (itemsToDisplay.length === 0) {
-            list.innerHTML = '<div class="empty-state">해당 구역에 등록된 시간의 지층이 아직 없습니다.<br>첫 번째 사진을 올려 지층을 쌓아보세요!</div>';
+            list.innerHTML = '<div class="empty-state">선택하신 구역에 등록된 과거 사진이 아직 없습니다.<br>첫 번째 사진을 올려 지층을 채워보세요!</div>';
             return;
         }
 
@@ -330,7 +358,7 @@
                 <div class="strata-node"></div>
                 <div class="strata-header">
                     <span class="strata-year"><i class="fa-solid fa-clock"></i> ${item.year}</span>
-                    <span class="strata-area-tag" onclick="filterByArea('${item.areaName}')">📍 ${item.areaName}</span>
+                    <span class="strata-area-tag" onclick="loadRoadviewAndArea(${item.lat}, ${item.lng}, '${item.areaName}')">📍 ${item.areaName}</span>
                 </div>
                 <div class="strata-date">📸 촬영일: ${item.photoDate}</div>
                 <div class="strata-img-wrap">
