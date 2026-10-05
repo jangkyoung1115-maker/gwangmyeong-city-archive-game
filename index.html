@@ -13,7 +13,6 @@
     <!-- Firebase SDK (v9 Compat) -->
     <script src="https://www.gstatic.com/firebasejs/9.22.1/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/9.22.1/firebase-firestore-compat.js"></script>
-    <script src="https://www.gstatic.com/firebasejs/9.22.1/firebase-storage-compat.js"></script>
 
     <style>
         * { box-sizing: border-box; margin: 0; padding: 0; font-family: 'Pretendard', sans-serif; }
@@ -47,7 +46,7 @@
         }
         .toggle-btn.active { background: #2563eb; color: #fff; }
 
-        /* 중앙 위치 선택 핀 */
+        /* 중앙 위치 선택 핀 (기본 숨김) */
         #center-pin {
             display: none; position: absolute; top: 50%; left: 50%; transform: translate(-50%, -100%);
             z-index: 30; pointer-events: none; text-align: center;
@@ -57,7 +56,7 @@
 
         #picker-controls {
             display: none; position: absolute; top: 12px; left: 12px; z-index: 30;
-            display: flex; gap: 8px; align-items: center;
+            gap: 8px; align-items: center;
         }
         .confirm-loc-btn {
             background: #f59e0b; color: #000; border: none; padding: 8px 16px;
@@ -230,6 +229,7 @@
 
 <div id="main-container">
     <div id="view-section">
+        <!-- 중앙 위치 선택 핀 (GPS 없을 때만 활성화) -->
         <div id="center-pin">
             <i class="fa-solid fa-location-dot"></i>
             <div class="pin-dot"></div>
@@ -252,7 +252,7 @@
     <div id="strata-panel">
         <div class="panel-header">
             <h2 id="loc-title"><i class="fa-solid fa-clock-rotate-left" style="color:#f59e0b;"></i> 광명 행정동별 시간 지층</h2>
-            <p id="loc-desc">Firebase DB에 데이터가 안전하게 저장되며, 사진은 자동으로 최적화 용량으로 축소 업로드됩니다.</p>
+            <p id="loc-desc">GPS가 있는 사진은 자동 등록되며, 캡처 사진은 지도에서 직접 위치를 맞출 수 있습니다.</p>
         </div>
 
         <div class="category-filter" id="dong-filter-bar">
@@ -272,7 +272,7 @@
         </div>
 
         <button class="upload-btn" onclick="document.getElementById('file-input').click()">
-            <i class="fa-solid fa-camera"></i> 과거 사진 올리기 (자동 용량 축소)
+            <i class="fa-solid fa-camera"></i> 과거 사진 올리기 (자동 압축)
         </button>
         <input type="file" id="file-input" accept="image/*" style="display:none;" onchange="handlePhotoSeedUpload(event)">
 
@@ -296,7 +296,7 @@
 
 <div id="loading-overlay">
     <div class="spinner"></div>
-    <div id="loading-text">사진 용량을 축소하여 업로드 중입니다...</div>
+    <div id="loading-text">사진 압축 및 처리 중...</div>
 </div>
 
 <!-- 카카오 지도 API -->
@@ -304,7 +304,7 @@
 
 <script>
     // -----------------------------------------------------------------
-    // 1. Firebase 초기화 설정 (본인의 Firebase 프로젝트 키 정보를 입력하세요)
+    // Firebase 초기화 설정 (본인의 앱 설정 코드를 아래에 입력하세요)
     // -----------------------------------------------------------------
     const firebaseConfig = {
   apiKey: "AIzaSyBT3XitKnS9ALq19w_gnse0U9VDSaVw9WM",
@@ -317,7 +317,6 @@
 
     firebase.initializeApp(firebaseConfig);
     const db = firebase.firestore();
-    const storage = firebase.storage();
 
     let map, geocoder, roadview, roadviewClient, currentMarker = null;
     let markersOnMap = [];
@@ -325,7 +324,7 @@
     let selectedDong = 'ALL';
     let currentLatLng = null;
 
-    let userStrataStore = []; // Firebase 동기화 데이터
+    let userStrataStore = [];
     let pendingUploadData = null;
 
     const DONG_COORDS = {
@@ -371,7 +370,6 @@
         initModalZoomEvents();
     }
 
-    // Firebase 실시간 리스너 (데이터 추가/수정/삭제 실시간 반응)
     function initFirebaseRealtimeSync() {
         db.collection("strata_records").onSnapshot(snapshot => {
             userStrataStore = [];
@@ -473,10 +471,7 @@
         });
     }
 
-    // -----------------------------------------------------------------
-    // 2. 클라이언트 이미지 자동 최적화 압축 (가로 1200px 제한, JPEG 80% 화질)
-    // -----------------------------------------------------------------
-    function compressImageFile(file, maxWidth = 1200, quality = 0.8, callback) {
+    function compressImageFile(file, maxWidth = 800, quality = 0.7, callback) {
         const reader = new FileReader();
         reader.onload = function(e) {
             const img = new Image();
@@ -495,9 +490,8 @@
                 const ctx = canvas.getContext("2d");
                 ctx.drawImage(img, 0, 0, width, height);
 
-                canvas.toBlob((blob) => {
-                    callback(blob);
-                }, 'image/jpeg', quality);
+                const base64Url = canvas.toDataURL("image/jpeg", quality);
+                callback(base64Url);
             };
             img.src = e.target.result;
         };
@@ -531,7 +525,7 @@
         const file = event.target.files[0];
         if (!file) return;
 
-        showLoading("사진 정보 및 최적화를 수행 중입니다...");
+        showLoading("사진 메타데이터 분석 및 압축 중...");
 
         EXIF.getData(file, function() {
             let photoDateStr = EXIF.getTag(this, "DateTimeOriginal") || EXIF.getTag(this, "DateTime");
@@ -561,23 +555,25 @@
                 hasGPS = true;
             }
 
-            // 용량 축소 진행
-            compressImageFile(file, 1200, 0.8, function(compressedBlob) {
+            compressImageFile(file, 800, 0.7, function(compressedBase64) {
                 hideLoading();
 
                 pendingUploadData = {
-                    blob: compressedBlob,
+                    base64Img: compressedBase64,
                     extractedYear: extractedYear,
                     formattedDate: formattedDate
                 };
 
                 if (hasGPS) {
+                    // GPS가 있으면 위치 지정 모드를 켜지 않고 바로 등록 완료 진행
                     completeUploadWithCoords(lat, lng, pendingUploadData);
+                    pendingUploadData = null;
                 } else {
+                    // GPS가 없을 때만 지도 중앙 조준 핀 활성화
                     switchView('map');
                     document.getElementById('center-pin').style.display = 'block';
                     document.getElementById('picker-controls').style.display = 'flex';
-                    alert("지도를 이동하여 중앙 주황색 핀을 촬영 장소에 위치시킨 후,\n상단의 [이 위치 선택 완료] 버튼을 눌러주세요.");
+                    alert("⚠️ 사진에 GPS 위치 정보가 없습니다.\n지도를 이동하여 중앙 주황색 핀을 촬영 장소에 맞춘 뒤,\n좌측 상단의 [이 위치 선택 완료] 버튼을 눌러주세요.");
                 }
             });
         });
@@ -617,22 +613,14 @@
             }
 
             try {
-                showLoading("Firebase 서버로 정밀 업로드 중입니다...");
+                showLoading("Firestore DB에 안전하게 저장 중...");
 
-                // 1. Storage에 압축된 이미지 업로드
-                const fileName = `strata_${Date.now()}.jpg`;
-                const storageRef = storage.ref(`strata_images/${fileName}`);
-                const snapshot = await storageRef.put(uploadData.blob);
-                const downloadURL = await snapshot.ref.getDownloadURL();
-
-                // 2. Firestore DB에 기록 메타데이터 저장
                 await db.collection("strata_records").add({
                     dong: promptDong,
                     year: promptYear,
                     photoDate: promptDate,
                     desc: desc,
-                    img: downloadURL,
-                    storagePath: `strata_images/${fileName}`,
+                    img: uploadData.base64Img,
                     lat: lat,
                     lng: lng,
                     password: password.trim(),
@@ -647,7 +635,7 @@
             } catch (err) {
                 hideLoading();
                 console.error("업로드 에러:", err);
-                alert("업로드 중 오류가 발생했습니다. Firebase 설정을 확인해 주세요.");
+                alert("저장 중 오류가 발생했습니다. Firebase 설정을 확인해 주세요.");
             }
         });
     }
@@ -670,7 +658,7 @@
         const newDesc = prompt("설명 메모를 수정합니다:", item.desc) || item.desc;
 
         try {
-            showLoading("수정 사항을 업데이트 중입니다...");
+            showLoading("수정 사항 업데이트 중...");
             await db.collection("strata_records").doc(id).update({
                 year: newYear,
                 dong: newDong,
@@ -700,18 +688,8 @@
         if (!confirm("정말 이 사진 기록을 삭제하시겠습니까?")) return;
 
         try {
-            showLoading("삭제 중입니다...");
-            
-            // Storage 이미지 삭제
-            if (item.storagePath) {
-                try {
-                    await storage.ref(item.storagePath).delete();
-                } catch (e) { console.log("Storage 삭제 생략 또는 이미 없음"); }
-            }
-
-            // DB 문서 삭제
+            showLoading("삭제 중...");
             await db.collection("strata_records").doc(id).delete();
-            
             hideLoading();
             alert("삭제되었습니다.");
         } catch (e) {
