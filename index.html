@@ -190,7 +190,7 @@
 
         <div id="selected-area-display" class="area-badge">
             <span><i class="fa-solid fa-location-dot"></i> <span id="current-area-name">전체 광명시 지층</span></span>
-            <span style="font-size: 0.72rem; color:#9ca3af; font-weight: normal;">⏳ 시간순 정렬 중</span>
+            <span style="font-size: 0.72rem; color:#9ca3af; font-weight: normal;">⏳ 최신순 정렬 중</span>
         </div>
 
         <button class="upload-btn" onclick="document.getElementById('file-input').click()">
@@ -313,7 +313,7 @@
         }
     }
 
-    // 행정구역 클릭 시 위치 이동 및 시간순 정렬 실행
+    // 행정구역 클릭 시 위치 이동 및 최신순 정렬 실행
     function filterDong(dong, el) {
         selectedDong = dong;
 
@@ -528,7 +528,7 @@
         renderStrataTimeline();
     }
 
-    // 사진들을 날짜/연도 기준 시간순(과거 -> 최근)으로 정렬하여 표시
+    // 사진들을 날짜/연도 기준 최신순(최신 -> 과거)으로 정렬하여 표시
     function renderStrataTimeline() {
         const list = document.getElementById('strata-list');
         list.innerHTML = '';
@@ -539,11 +539,11 @@
             itemsToDisplay = itemsToDisplay.filter(item => item.dong.includes(selectedDong));
         }
 
-        // 오래된 날짜/연도 순(오름차순) 정렬
+        // 최신 날짜/연도 순(내림차순: 최신이 위, 오래된 것이 아래) 정렬
         itemsToDisplay.sort((a, b) => {
             const dateA = a.photoDate || a.year;
             const dateB = b.photoDate || b.year;
-            return dateA.localeCompare(dateB);
+            return dateB.localeCompare(dateA);
         });
 
         if (itemsToDisplay.length === 0) {
