@@ -60,11 +60,17 @@
             width: 2px; background: #2d323e; z-index: 1;
         }
 
+        /* 지층 카드 스타일 및 클릭 피드백 */
         .strata-card {
             position: relative; z-index: 2; background: #1c212b; border: 1px solid #2d323e;
-            border-radius: 10px; padding: 12px 12px 12px 34px;
+            border-radius: 10px; padding: 12px 12px 12px 34px; cursor: pointer;
+            transition: all 0.2s ease-in-out;
+        }
+        .strata-card:hover, .strata-card.active {
+            border-color: #3b82f6; background: #232a37; transform: translateY(-2px);
         }
         .strata-card.user-seed { border: 2px solid #3b82f6; background: #182232; }
+        
         .strata-node {
             position: absolute; left: 8px; top: 16px; width: 10px; height: 10px;
             border-radius: 50%; background: #3b82f6; border: 2px solid #14171d; z-index: 3;
@@ -72,7 +78,7 @@
         .strata-card.past .strata-node { background: #f59e0b; }
 
         .strata-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px; }
-        .strata-year { font-size: 0.9rem; font-weight: 700; color: #60a5fa; }
+        .strata-year { font-size: 0.9rem; font-weight: 700; color: #60a5fa; display: flex; align-items: center; gap: 6px; }
         .strata-card.past .strata-year { color: #f59e0b; }
         .strata-tag-group { display: flex; align-items: center; gap: 6px; }
         .strata-tag { font-size: 0.7rem; padding: 2px 6px; border-radius: 4px; background: #2d323e; color: #9ca3af; }
@@ -117,7 +123,7 @@
     <div id="strata-panel">
         <div class="panel-header">
             <h2 id="loc-title"><i class="fa-solid fa-location-dot" style="color:#ef4444;"></i> 광명시 시공간 지층</h2>
-            <p id="loc-desc">지도를 터치하거나 사진을 올려 GPS 정확한 위치 기반 지층을 심어보세요.</p>
+            <p id="loc-desc">지층 카드를 터치하면 해당 연도의 시공간 로드뷰로 이동합니다.</p>
         </div>
 
         <button class="upload-btn" onclick="document.getElementById('file-input').click()">
@@ -129,11 +135,12 @@
     </div>
 </div>
 
-<!-- 카카오맵 SDK (자바스크립트 키 적용 완료) -->
+<!-- 카카오맵 SDK -->
 <script type="text/javascript" src="//dapi.kakao.com/v2/maps/sdk.js?appkey=Bd83a6ca29e1fbf4fa5da49d88125054&libraries=services"></script>
 
 <script>
     let map, roadview, roadviewClient, currentMarker = null;
+    let currentLatLng = null;
     const GM_CENTER = { lat: 37.4786, lng: 126.8645 };
 
     let userStrataStore = [];
@@ -214,17 +221,34 @@
     }
 
     function loadLocationStrata(lat, lng) {
-        const pos = new kakao.maps.LatLng(lat, lng);
-        map.panTo(pos);
+        currentLatLng = new kakao.maps.LatLng(lat, lng);
+        map.panTo(currentLatLng);
 
         if (currentMarker) currentMarker.setMap(null);
-        currentMarker = new kakao.maps.Marker({ position: pos, map: map });
+        currentMarker = new kakao.maps.Marker({ position: currentLatLng, map: map });
 
-        roadviewClient.getNearestPanoId(pos, 50, function(panoId) {
+        // 로드뷰 연동
+        roadviewClient.getNearestPanoId(currentLatLng, 50, function(panoId) {
             if (panoId) {
-                roadview.setPanoId(panoId, pos);
+                roadview.setPanoId(panoId, currentLatLng);
             }
             renderStrataStack();
+        });
+    }
+
+    // 지층 카드 클릭 시 로드뷰/지도 연동 실행 함수
+    function selectStrataLayer(year, isUser = false) {
+        if (!currentLatLng) return;
+
+        switchView('rv'); // 로드뷰 화면으로 자동 전환
+
+        roadviewClient.getNearestPanoId(currentLatLng, 50, function(panoId) {
+            if (panoId) {
+                roadview.setPanoId(panoId, currentLatLng);
+                alert(`📍 ${year} 시공간 지층으로 연결되었습니다.`);
+            } else {
+                alert(`선택하신 위치는 로드뷰 데이터가 제한적인 구역입니다.`);
+            }
         });
     }
 
@@ -232,13 +256,20 @@
         const list = document.getElementById('strata-list');
         list.innerHTML = '';
 
+        // 1. 유저 제보 사진 지층
         userStrataStore.forEach(item => {
             const card = document.createElement('div');
             card.className = "strata-card user-seed";
+            card.onclick = (e) => {
+                if (e.target.tagName !== 'BUTTON') {
+                    selectStrataLayer(item.year, true);
+                }
+            };
+
             card.innerHTML = `
                 <div class="strata-node"></div>
                 <div class="strata-header">
-                    <span class="strata-year">${item.year}</span>
+                    <span class="strata-year"><i class="fa-solid fa-clock-rotate-left"></i> ${item.year}</span>
                     <div class="strata-tag-group">
                         <span class="strata-tag">시민 아카이브</span>
                         <div class="action-btns">
@@ -253,9 +284,10 @@
             list.appendChild(card);
         });
 
+        // 2. 연도별 과거 기초 지층
         const baseLayers = [
-            { year: "2026년 (현재)", tag: "카카오 로드뷰", desc: "현재 도로 및 주변 건물 현황 데이터" },
-            { year: "2021년 지층", tag: "카카오 과거 데이터", desc: "재개발 및 도로 정비 진행 시기 파노라마", isPast: true },
+            { year: "2026년 (현재 지층)", tag: "카카오 로드뷰", desc: "현재 도시 풍경 및 건물 현황 데이터" },
+            { year: "2021년 지층", tag: "카카오 과거 데이터", desc: "주변 재개발 및 도로 정비 진행 시기", isPast: true },
             { year: "2012년 지층", tag: "카카오 과거 데이터", desc: "옛 구도심 상가 및 골목 보존 시기", isPast: true },
             { year: "2008년 기초 지층", tag: "카카오 최초 기록", desc: "초기 로드뷰 수집 파노라마 데이터", isPast: true }
         ];
@@ -263,10 +295,12 @@
         baseLayers.forEach(item => {
             const card = document.createElement('div');
             card.className = `strata-card ${item.isPast ? 'past' : ''}`;
+            card.onclick = () => selectStrataLayer(item.year);
+
             card.innerHTML = `
                 <div class="strata-node"></div>
                 <div class="strata-header">
-                    <span class="strata-year">${item.year}</span>
+                    <span class="strata-year"><i class="fa-solid fa-clock-rotate-left"></i> ${item.year}</span>
                     <span class="strata-tag">${item.tag}</span>
                 </div>
                 <div class="strata-desc">${item.desc}</div>
