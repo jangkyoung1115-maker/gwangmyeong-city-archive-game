@@ -7,7 +7,7 @@
     <!-- Pretendard 폰트 & FontAwesome 아이콘 -->
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard/dist/web/static/pretendard.css">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
-    <!-- OpenStreetMap (Leaflet) 지도 라이브러리 (API 키 필요 없음) -->
+    <!-- OpenStreetMap (Leaflet) 지도 라이브러리 -->
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
     <!-- 사진 EXIF(GPS 메타데이터) 추출 라이브러리 -->
@@ -45,7 +45,7 @@
             display: flex; align-items: center; justify-content: center; gap: 6px;
         }
 
-        .strata-timeline { display: flex; flex-direction: column; gap: 12px; position: relative; }
+        .strata-timeline { display: flex; flex-direction: column; gap: 14px; position: relative; }
         .strata-timeline::before {
             content: ''; position: absolute; left: 13px; top: 8px; bottom: 8px;
             width: 2px; background: #2d323e; z-index: 1;
@@ -77,6 +77,8 @@
         .btn-mini.danger:hover { background: #ef4444; color: #fff; }
 
         .strata-img { width: 100%; max-height: 180px; object-fit: cover; border-radius: 6px; margin-top: 6px; margin-bottom: 6px; }
+        .strata-card.past .strata-img { filter: sepia(0.2) contrast(1.05); } /* 과거 지층 톤 효과 */
+
         .strata-desc { font-size: 0.8rem; color: #d1d5db; line-height: 1.35; }
 
         @media (min-width: 768px) {
@@ -103,7 +105,7 @@
     <div id="strata-panel">
         <div class="panel-header">
             <h2 id="loc-title"><i class="fa-solid fa-location-dot" style="color:#ef4444;"></i> 광명시 시공간 지층</h2>
-            <p id="loc-desc">지도를 터치하거나 사진을 올리면 GPS 위치 기반 지층 씨앗이 심어집니다.</p>
+            <p id="loc-desc">지도를 터치하거나 사진을 올려 GPS 위치 기반 지층 씨앗을 심어보세요.</p>
         </div>
 
         <button class="upload-btn" onclick="document.getElementById('file-input').click()">
@@ -122,7 +124,6 @@
     let userStrataStore = [];
 
     function initMap() {
-        // OpenStreetMap 지도 초기화 (키 필요 없음)
         map = L.map('map').setView(GM_CENTER, 14);
 
         L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
@@ -130,7 +131,6 @@
             attribution: '© OpenStreetMap'
         }).addTo(map);
 
-        // 지도 터치 시 위치 이동 및 핀 생성
         map.on('click', function(e) {
             setMapLocation(e.latlng.lat, e.latlng.lng);
         });
@@ -192,7 +192,7 @@
         const list = document.getElementById('strata-list');
         list.innerHTML = '';
 
-        // 유저 업로드 사진 지층
+        // 1. 유저 업로드 사진 지층 (최상단)
         userStrataStore.forEach(item => {
             const card = document.createElement('div');
             card.className = "strata-card user-seed";
@@ -214,12 +214,35 @@
             list.appendChild(card);
         });
 
-        // 과거 기초 지층
+        // 2. 이전 연도 역사 지층 타임라인 (사진 포함)
         const baseLayers = [
-            { year: "2026년 (현재)", tag: "도시 현황", desc: "현재 지표면 및 상권 현황" },
-            { year: "2021년 지층", tag: "역사 기록", desc: "주변 정비 및 재개발 시기", isPast: true },
-            { year: "2012년 지층", tag: "역사 기록", desc: "옛 구도심 건물 형태 보존 시기", isPast: true },
-            { year: "2008년 기초 지층", tag: "초기 아카이브", desc: "광명시 시공간 아카이브 구축 연도", isPast: true }
+            {
+                year: "2026년 (현재 지층)",
+                tag: "도시 현황",
+                img: "https://images.unsplash.com/photo-1519501025264-65ba15a82390?w=600&auto=format&fit=crop",
+                desc: "현재 지표면 및 상권 현황 기록"
+            },
+            {
+                year: "2021년 지층",
+                tag: "역사 기록",
+                img: "https://images.unsplash.com/photo-1486406146926-c627a92ad1ab?w=600&auto=format&fit=crop",
+                desc: "주변 정비 및 재개발 진행 시기",
+                isPast: true
+            },
+            {
+                year: "2012년 지층",
+                tag: "역사 기록",
+                img: "https://images.unsplash.com/photo-1514565131-fce0801e5785?w=600&auto=format&fit=crop",
+                desc: "옛 구도심 건물 형태 보존 시기",
+                isPast: true
+            },
+            {
+                year: "2008년 기초 지층",
+                tag: "초기 아카이브",
+                img: "https://images.unsplash.com/photo-1449824913935-59a10b8d2000?w=600&auto=format&fit=crop",
+                desc: "광명시 시공간 아카이브 구축 시작 연도",
+                isPast: true
+            }
         ];
 
         baseLayers.forEach(item => {
@@ -231,6 +254,7 @@
                     <span class="strata-year">${item.year}</span>
                     <span class="strata-tag">${item.tag}</span>
                 </div>
+                <img class="strata-img" src="${item.img}" alt="${item.year}">
                 <div class="strata-desc">${item.desc}</div>
             `;
             list.appendChild(card);
