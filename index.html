@@ -7,7 +7,7 @@
     <!-- Pretendard 폰트 & FontAwesome 아이콘 -->
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard/dist/web/static/pretendard.css">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
-    <!-- 사진 EXIF(GPS 메타데이터) 추출 라이브러리 -->
+    <!-- 사진 EXIF(GPS & 촬영날짜) 추출 라이브러리 -->
     <script src="https://cdn.jsdelivr.net/npm/exif-js"></script>
 
     <style>
@@ -79,6 +79,7 @@
         .strata-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px; }
         .strata-year { font-size: 0.9rem; font-weight: 700; color: #60a5fa; display: flex; align-items: center; gap: 6px; }
         .strata-card.past .strata-year { color: #f59e0b; }
+        .strata-date { font-size: 0.75rem; color: #38bdf8; font-weight: 600; margin-bottom: 4px; display: flex; align-items: center; gap: 4px; }
         .strata-tag-group { display: flex; align-items: center; gap: 6px; }
         .strata-tag { font-size: 0.7rem; padding: 2px 6px; border-radius: 4px; background: #2d323e; color: #9ca3af; }
 
@@ -122,7 +123,7 @@
     <div id="strata-panel">
         <div class="panel-header">
             <h2 id="loc-title"><i class="fa-solid fa-location-dot" style="color:#ef4444;"></i> 광명시 시공간 지층</h2>
-            <p id="loc-desc">지도를 클릭하면 해당 위치의 정밀 GPS 지층과 로드뷰 타임라인이 연결됩니다.</p>
+            <p id="loc-desc">지도를 클릭하면 해당 위치의 GPS 지층과 로드뷰 타임라인이 연결됩니다.</p>
         </div>
 
         <button class="upload-btn" onclick="document.getElementById('file-input').click()">
@@ -155,7 +156,7 @@
         roadview = new kakao.maps.Roadview(rvContainer);
         roadviewClient = new kakao.maps.RoadviewClient();
 
-        // 카카오 로드뷰 타임라인(과거 연도 선택 기능) 활성화
+        // 카카오 로드뷰 타임라인(과거 연도 조절) 기능 활성화
         roadview.setTimeLine(true);
 
         kakao.maps.event.addListener(map, 'click', function(mouseEvent) {
@@ -178,7 +179,6 @@
         } else {
             mapEl.style.display = 'none'; rvEl.style.display = 'block';
             btnRv.classList.add('active'); btnMap.classList.remove('active');
-            // 로드뷰 전환 시 리사이즈 반영
             roadview.relayout();
         }
     }
@@ -197,6 +197,27 @@
             const imgDataUrl = e.target.result;
 
             EXIF.getData(file, function() {
+                // 1. 촬영 날짜 추출 (없으면 오늘 날짜 사용)
+                let photoDateStr = EXIF.getTag(this, "DateTimeOriginal") || EXIF.getTag(this, "DateTime");
+                let formattedDate = "";
+
+                if (photoDateStr) {
+                    // "YYYY:MM:DD HH:MM:SS" -> "YYYY-MM-DD"
+                    const parts = photoDateStr.split(" ")[0].split(":");
+                    if (parts.length === 3) {
+                        formattedDate = `${parts[0]}-${parts[1]}-${parts[2]}`;
+                    }
+                }
+
+                if (!formattedDate) {
+                    const today = new Date();
+                    const y = today.getFullYear();
+                    const m = String(today.getMonth() + 1).padStart(2, '0');
+                    const d = String(today.getDate()).padStart(2, '0');
+                    formattedDate = `${y}-${m}-${d} (업로드일)`;
+                }
+
+                // 2. GPS 좌표 추출
                 const lat = EXIF.getTag(this, "GPSLatitude");
                 const lon = EXIF.getTag(this, "GPSLongitude");
 
@@ -214,7 +235,8 @@
                     pwd: pwd,
                     img: imgDataUrl,
                     desc: desc,
-                    year: "유저 제보 지층",
+                    year: "시민 제보 지층",
+                    photoDate: formattedDate,
                     lat: coords.lat,
                     lng: coords.lng
                 };
@@ -233,7 +255,7 @@
         if (currentMarker) currentMarker.setMap(null);
         currentMarker = new kakao.maps.Marker({ position: currentLatLng, map: map });
 
-        // 해당 좌표 주변 최단거리 로드뷰 검색 후 로딩
+        // 최단거리 파노라마 가져와 로드뷰 바인딩
         roadviewClient.getNearestPanoId(currentLatLng, 50, function(panoId) {
             if (panoId) {
                 roadview.setPanoId(panoId, currentLatLng);
@@ -253,7 +275,7 @@
         const list = document.getElementById('strata-list');
         list.innerHTML = '';
 
-        // 1. 유저 제보 사진 지층
+        // 1. 유저 제보 사진 지층 목록
         userStrataStore.forEach(item => {
             const card = document.createElement('div');
             card.className = "strata-card user-seed";
@@ -275,15 +297,16 @@
                         </div>
                     </div>
                 </div>
+                <div class="strata-date"><i class="fa-regular fa-calendar-check"></i> 📸 촬영일: ${item.photoDate}</div>
                 <img class="strata-img" src="${item.img}">
                 <div class="strata-desc">${item.desc}</div>
             `;
             list.appendChild(card);
         });
 
-        // 2. 카카오맵 내장 로드뷰 타임라인 안내 지층
+        // 2. 카카오 로드뷰 시공간 아카이브 지층
         const baseLayers = [
-            { year: "카카오 로드뷰 타임머신", tag: "과거 년도 연동", desc: "상단 '📷 로드뷰' 모드로 전환 후 화면 내 시계 아이콘/타임라인을 조절하면 해당 위치의 과거 시점 사진을 보실 수 있습니다." }
+            { year: "카카오 시공간 타임머신", tag: "과거 로드뷰 연동", desc: "상단 '📷 로드뷰' 모드로 전환하시면 화면 상단에 카카오 공식 연도별 타임라인(2008년~현재)이 나타나며, 클릭 시 해당 과거 풍경으로 즉시 이동합니다." }
         ];
 
         baseLayers.forEach(item => {
