@@ -47,7 +47,7 @@
             display: none; position: absolute; top: 12px; left: 12px; z-index: 25;
             background: #f59e0b; color: #000; font-weight: 800; font-size: 0.8rem;
             padding: 8px 14px; border-radius: 20px; box-shadow: 0 4px 12px rgba(0,0,0,0.4);
-            animation: pulse 1.5s infinite;
+            animation: pulse 1.5s infinite; pointer-events: none;
         }
         @keyframes pulse { 0% { opacity: 0.8; } 50% { opacity: 1; } 100% { opacity: 0.8; } }
 
@@ -205,7 +205,7 @@
 
 <div id="main-container">
     <div id="view-section">
-        <div id="picker-banner"><i class="fa-solid fa-location-crosshairs"></i> 사진 위치로 설정할 지도 지점을 클릭하세요</div>
+        <div id="picker-banner"><i class="fa-solid fa-location-crosshairs"></i> 지도에서 사진 위치를 클릭해주세요</div>
         <div class="view-toggle">
             <button class="toggle-btn active" id="btn-map" onclick="switchView('map')">🗺 지도</button>
             <button class="toggle-btn" id="btn-rv" onclick="switchView('rv')">📷 현재 로드뷰</button>
@@ -217,7 +217,7 @@
     <div id="strata-panel">
         <div class="panel-header">
             <h2 id="loc-title"><i class="fa-solid fa-clock-rotate-left" style="color:#f59e0b;"></i> 광명 행정동별 시간 지층</h2>
-            <p id="loc-desc">사진 EXIF 정보(GPS/날짜)를 자동 추출하며, GPS가 없는 캡처 사진은 직접 지도를 클릭해 지정할 수 있습니다.</p>
+            <p id="loc-desc">캡처/과거 사진은 지도 클릭으로 위치를 직접 지정할 수 있으며, 작성 시 설정한 비밀번호로 관리됩니다.</p>
         </div>
 
         <div class="category-filter" id="dong-filter-bar">
@@ -233,11 +233,11 @@
 
         <div id="selected-area-display" class="area-badge">
             <span><i class="fa-solid fa-location-dot"></i> <span id="current-area-name">전체 광명시 지층</span></span>
-            <span style="font-size: 0.72rem; color:#9ca3af; font-weight: normal;">⏳ 최신순 (상단:최신 / 하단:과거)</span>
+            <span style="font-size: 0.72rem; color:#9ca3af; font-weight: normal;">⏳ 최신순 정렬</span>
         </div>
 
         <button class="upload-btn" onclick="document.getElementById('file-input').click()">
-            <i class="fa-solid fa-camera"></i> 과거 사진 올리기 (캡처/일반 사진 지원)
+            <i class="fa-solid fa-camera"></i> 과거 사진 올리기 (캡처본/일반 사진)
         </button>
         <input type="file" id="file-input" accept="image/*" style="display:none;" onchange="handlePhotoSeedUpload(event)">
 
@@ -269,7 +269,7 @@
     let selectedDong = 'ALL';
     let currentLatLng = null;
 
-    // 위치 직접 지정 모드 플래그
+    // 위치 직접 지정 모드
     let isLocationPickerActive = false;
     let pendingUploadData = null;
 
@@ -284,7 +284,7 @@
         '옥길동': { lat: 37.4690, lng: 126.8380, zoom: 4 }
     };
 
-    const STORAGE_KEY = 'GM_STRATA_DONG_SEEDS_V9';
+    const STORAGE_KEY = 'GM_STRATA_DONG_SEEDS_V10';
 
     const initialSampleData = [
         {
@@ -295,7 +295,8 @@
             desc: "철산주공 13단지 인근 과거 아파트 단지 풍경입니다.",
             img: "https://images.unsplash.com/photo-1542601906990-b4d3fb778b09?w=600&auto=format&fit=crop&q=60",
             lat: 37.4815,
-            lng: 126.8675
+            lng: 126.8675,
+            password: "1234"
         },
         {
             id: 2,
@@ -305,7 +306,8 @@
             desc: "하안주공 단지 및 단독필지 거리 모습입니다.",
             img: "https://images.unsplash.com/photo-1512917774080-9991f1c4c750?w=600&auto=format&fit=crop&q=60",
             lat: 37.4618,
-            lng: 126.8672
+            lng: 126.8672,
+            password: "1234"
         },
         {
             id: 3,
@@ -315,7 +317,8 @@
             desc: "광명사거리역 전통시장 정문 거리의 옛 모습입니다.",
             img: "https://images.unsplash.com/photo-1448630360428-65456885c650?w=600&auto=format&fit=crop&q=60",
             lat: 37.4788,
-            lng: 126.8550
+            lng: 126.8550,
+            password: "1234"
         }
     ];
 
@@ -325,7 +328,7 @@
         try {
             localStorage.setItem(STORAGE_KEY, JSON.stringify(userStrataStore));
         } catch (e) {
-            alert("용량이 초과하여 저장이 제한되었습니다. 오래된 기록을 일부 정리해 주세요.");
+            alert("저장 공간이 부족합니다. 오래된 데이터를 일부 정리하세요.");
         }
     }
 
@@ -342,12 +345,11 @@
         roadview = new kakao.maps.Roadview(rvContainer);
         roadviewClient = new kakao.maps.RoadviewClient();
 
-        // 지도 클릭 이벤트 (위치 지정 모드 지원)
+        // 지도 클릭 이벤트 핸들러
         kakao.maps.event.addListener(map, 'click', function(mouseEvent) {
             const latLng = mouseEvent.getLatLng();
 
             if (isLocationPickerActive && pendingUploadData) {
-                // GPS가 없는 사진의 위치 지정 완료
                 finishLocationPicking(latLng.getLat(), latLng.getLng());
             } else {
                 if (activeInfoWindow) activeInfoWindow.close();
@@ -370,6 +372,7 @@
         if (mode === 'map') {
             mapEl.style.display = 'block'; rvEl.style.display = 'none';
             btnMap.classList.add('active'); btnRv.classList.remove('active');
+            map.relayout();
         } else {
             mapEl.style.display = 'none'; rvEl.style.display = 'block';
             btnRv.classList.add('active'); btnMap.classList.remove('active');
@@ -499,7 +502,6 @@
         });
     }
 
-    // 사진 업로드 메인 로직 (EXIF 검사 + 위치 지정)
     function handlePhotoSeedUpload(event) {
         const file = event.target.files[0];
         if (!file) return;
@@ -540,11 +542,9 @@
                 };
 
                 if (hasGPS) {
-                    // GPS가 명확한 경우 바로 처리
                     completeUploadWithCoords(lat, lng, pendingUploadData);
                 } else {
-                    // 캡처본/옛날 사진 등 GPS가 없는 경우 지도에서 선택 유도
-                    const chooseMode = confirm("사진에 위치(GPS) 정보가 없습니다.\n지도를 직접 클릭해서 위치를 지정하시겠습니까?\n('취소' 클릭 시 현재 화면 중앙 위치로 등록됩니다)");
+                    const chooseMode = confirm("사진에 GPS 위치 정보가 없습니다.\n\n[확인] -> 지도에서 사진 위치를 클릭하여 선택\n[취소] -> 현재 화면 위치로 자동 등록");
                     if (chooseMode) {
                         switchView('map');
                         isLocationPickerActive = true;
@@ -558,11 +558,9 @@
             });
         });
 
-        // 파일 인풋 초기화
         event.target.value = "";
     }
 
-    // 지도 클릭 시 실행되는 위치 지정 완료 함수
     function finishLocationPicking(lat, lng) {
         isLocationPickerActive = false;
         document.getElementById('picker-banner').style.display = 'none';
@@ -573,18 +571,26 @@
         }
     }
 
-    // 입력 및 데이터 저장 최종 처리
     function completeUploadWithCoords(lat, lng, uploadData) {
         getDongFromCoords(lat, lng, function(cleanDong, fullDongName) {
             const promptYear = prompt(`사진의 실제 촬영 연도를 입력해주세요 (예: 1988년):`, uploadData.extractedYear || "1990년") || "1990년";
-            
-            // 사용자가 입력한 연도를 파싱하여 대표 날짜 기본값 생성 (정렬용)
             const cleanYearNum = promptYear.replace(/[^0-9]/g, '') || "1990";
             const defaultDate = uploadData.formattedDate || `${cleanYearNum}-01-01`;
 
             const promptDate = prompt(`상세 날짜/표기 날짜를 입력해주세요 (YYYY-MM-DD):`, defaultDate) || defaultDate;
             const promptDong = prompt(`등록될 광명시 '동' 이름입니다:`, cleanDong) || cleanDong;
             const desc = prompt("사진 및 장소에 대한 추억과 이야기를 남겨주세요:") || `${fullDongName} 인근의 시공간 기록입니다.`;
+            
+            // 비밀번호 설정 단계
+            let password = "";
+            while (!password) {
+                password = prompt("사진 수정/삭제 시 필요한 비밀번호(4자리 이상)를 설정해 주세요:");
+                if (password === null) return; // 취소한 경우
+                if (password.trim().length < 4) {
+                    alert("비밀번호는 최소 4자리 이상이어야 합니다.");
+                    password = "";
+                }
+            }
 
             const newSeed = {
                 id: Date.now(),
@@ -594,7 +600,8 @@
                 desc: desc,
                 img: uploadData.imgUrl,
                 lat: lat,
-                lng: lng
+                lng: lng,
+                password: password.trim()
             };
 
             userStrataStore.push(newSeed);
@@ -603,13 +610,22 @@
             loadRoadviewAndPos(lat, lng);
             filterDong(promptDong, null);
 
-            alert(`사진이 [광명시 ${promptDong}] 지층에 올바른 순서로 축적되었습니다!`);
+            alert(`사진이 [광명시 ${promptDong}] 지층에 성공적으로 축적되었습니다!`);
         });
     }
 
     function editCard(id) {
         const item = userStrataStore.find(seed => seed.id === id);
         if (!item) return;
+
+        // 비밀번호 확인
+        const inputPw = prompt("이 사진을 수정하려면 설정한 비밀번호를 입력하세요:");
+        if (inputPw === null) return;
+
+        if (inputPw !== item.password) {
+            alert("비밀번호가 일치하지 않습니다.");
+            return;
+        }
 
         const newYear = prompt("연도를 수정합니다 (예: 1985년):", item.year) || item.year;
         const newDong = prompt("동 구역을 수정합니다 (예: 철산동, 하안동):", item.dong) || item.dong;
@@ -624,18 +640,31 @@
         saveUserSeeds();
         updateMapMarkers();
         renderStrataTimeline();
+        alert("수정이 완료되었습니다.");
     }
 
     function deleteCard(id) {
-        if (!confirm("이 지층 사진 기록을 정말 삭제하시겠습니까?")) return;
+        const item = userStrataStore.find(seed => seed.id === id);
+        if (!item) return;
+
+        // 비밀번호 확인
+        const inputPw = prompt("이 사진을 삭제하려면 설정한 비밀번호를 입력하세요:");
+        if (inputPw === null) return;
+
+        if (inputPw !== item.password) {
+            alert("비밀번호가 일치하지 않습니다.");
+            return;
+        }
+
+        if (!confirm("정말 이 사진 기록을 삭제하시겠습니까?")) return;
 
         userStrataStore = userStrataStore.filter(seed => seed.id !== id);
         saveUserSeeds();
         updateMapMarkers();
         renderStrataTimeline();
+        alert("삭제되었습니다.");
     }
 
-    // 날짜/연도 정렬 (최신 사진이 상단, 오래된 사진일수록 하단)
     function renderStrataTimeline() {
         const list = document.getElementById('strata-list');
         list.innerHTML = '';
@@ -646,7 +675,6 @@
             itemsToDisplay = itemsToDisplay.filter(item => item.dong.includes(selectedDong));
         }
 
-        // 정렬 로직: photoDate 및 year 숫자를 조합해 정교하게 정렬 (최신 -> 과거)
         itemsToDisplay.sort((a, b) => {
             const keyA = a.photoDate || a.year;
             const keyB = b.photoDate || b.year;
@@ -682,7 +710,7 @@
         });
     }
 
-    // ================= 모달 줌 및 드래그 관련 상태 및 로직 =================
+    // ================= 모달 줌 및 드래그 로직 =================
     let scale = 1;
     let pointX = 0;
     let pointY = 0;
