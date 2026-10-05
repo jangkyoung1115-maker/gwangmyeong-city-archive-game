@@ -1,0 +1,746 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>광명시 시간의 지층 : 시공간 셀카 게임</title>
+  <!-- Pretendard Font & FontAwesome Icons -->
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard/dist/web/static/pretendard.css">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+  <!-- Leaflet Map CSS/JS (OpenSource Interactive Map) -->
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+  <style>
+    :root {
+      --bg-dark: #0f1117;
+      --panel-bg: rgba(22, 27, 38, 0.88);
+      --accent-blue: #3b82f6;
+      --accent-gold: #f59e0b;
+      --accent-green: #10b981;
+      --text-main: #f3f4f6;
+      --border-glow: rgba(59, 130, 246, 0.4);
+    }
+
+    * { box-sizing: border-box; margin: 0; padding: 0; font-family: 'Pretendard', sans-serif; }
+    body { background-color: var(--bg-dark); color: var(--text-main); overflow: hidden; height: 100vh; }
+
+    /* Header Chrome */
+    header {
+      height: 60px;
+      background: rgba(15, 17, 23, 0.95);
+      border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 0 20px;
+      z-index: 100;
+      position: relative;
+    }
+    .logo { font-size: 1.2rem; font-weight: 800; color: #60a5fa; display: flex; align-items: center; gap: 8px; }
+    .logo i { color: var(--accent-gold); }
+    
+    .status-bar { display: flex; align-items: center; gap: 12px; }
+    .point-badge {
+      background: rgba(245, 158, 11, 0.15);
+      border: 1px solid var(--accent-gold);
+      color: var(--accent-gold);
+      padding: 6px 14px;
+      border-radius: 20px;
+      font-weight: 700;
+      font-size: 0.9rem;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+    .rank-badge {
+      background: rgba(59, 130, 246, 0.15);
+      border: 1px solid var(--accent-blue);
+      color: #93c5fd;
+      padding: 6px 14px;
+      border-radius: 20px;
+      font-size: 0.85rem;
+      font-weight: 600;
+    }
+
+    /* Main Container */
+    #app-viewport {
+      position: relative;
+      width: 100vw;
+      height: calc(100vh - 60px);
+      overflow: hidden;
+    }
+
+    /* Roadview Container & Filters */
+    #roadview-stage {
+      width: 100%;
+      height: 100%;
+      position: absolute;
+      top: 0;
+      left: 0;
+      background-size: cover;
+      background-position: center;
+      transition: filter 0.5s ease, background-image 0.3s ease;
+    }
+    .filter-2008 { filter: sepia(0.35) contrast(1.1) brightness(0.9); }
+    .filter-2012 { filter: saturate(0.85) hue-rotate(-5deg) contrast(1.05); }
+    .filter-2016 { filter: contrast(1.08) saturate(1.1); }
+    .filter-2021 { filter: saturate(1.15) brightness(1.02); }
+    .filter-2026 { filter: saturate(1.25) sharpness(1.2); }
+
+    /* HUD Controls */
+    .hud-panel {
+      position: absolute;
+      backdrop-filter: blur(12px);
+      background: var(--panel-bg);
+      border: 1px solid rgba(255, 255, 255, 0.15);
+      border-radius: 16px;
+      box-shadow: 0 12px 32px rgba(0, 0, 0, 0.5);
+      z-index: 20;
+    }
+
+    /* Location Picker */
+    .location-picker {
+      top: 20px;
+      left: 20px;
+      padding: 12px 18px;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+    .location-picker select {
+      background: #1f2937;
+      color: white;
+      border: 1px solid #374151;
+      padding: 6px 12px;
+      border-radius: 8px;
+      font-size: 0.9rem;
+      outline: none;
+      cursor: pointer;
+    }
+
+    /* Time Slider Bar */
+    .time-slider-panel {
+      bottom: 30px;
+      left: 50%;
+      transform: translateX(-50%);
+      padding: 16px 30px;
+      width: 90%;
+      max-width: 620px;
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+      align-items: center;
+    }
+    .slider-header {
+      width: 100%;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+    .year-label {
+      font-size: 1.4rem;
+      font-weight: 800;
+      color: var(--accent-gold);
+      text-shadow: 0 0 10px rgba(245, 158, 11, 0.4);
+    }
+    .time-slider {
+      width: 100%;
+      accent-color: var(--accent-blue);
+      cursor: pointer;
+      height: 8px;
+    }
+    .year-ticks {
+      width: 100%;
+      display: flex;
+      justify-content: space-between;
+      font-size: 0.75rem;
+      color: #9ca3af;
+      padding: 0 4px;
+    }
+
+    /* Action Buttons (Right Side) */
+    .action-dock {
+      right: 20px;
+      top: 50%;
+      transform: translateY(-50%);
+      padding: 12px;
+      display: flex;
+      flex-direction: column;
+      gap: 14px;
+    }
+    .dock-btn {
+      width: 56px;
+      height: 56px;
+      border-radius: 14px;
+      border: 1px solid rgba(255, 255, 255, 0.2);
+      background: rgba(30, 41, 59, 0.85);
+      color: white;
+      font-size: 1.2rem;
+      cursor: pointer;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 3px;
+      transition: all 0.2s ease;
+    }
+    .dock-btn:hover {
+      background: var(--accent-blue);
+      border-color: #60a5fa;
+      transform: scale(1.08);
+      box-shadow: 0 0 15px var(--border-glow);
+    }
+    .dock-btn span { font-size: 0.65rem; font-weight: 600; }
+
+    /* Gwangmyeong Interactive Map Panel (Modal) */
+    #map-modal {
+      display: none;
+      position: absolute;
+      top: 50%; left: 50%;
+      transform: translate(-50%, -50%);
+      width: 85vw;
+      max-width: 800px;
+      height: 75vh;
+      background: var(--panel-bg);
+      border: 2px solid var(--accent-blue);
+      border-radius: 20px;
+      padding: 16px;
+      z-index: 250;
+      box-shadow: 0 20px 60px rgba(0, 0, 0, 0.8);
+      flex-direction: column;
+    }
+    .map-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 12px;
+      padding: 0 8px;
+    }
+    .map-header-title { font-size: 1.1rem; font-weight: 700; color: #60a5fa; display: flex; align-items: center; gap: 8px;}
+    #gm-map-container {
+      flex: 1;
+      width: 100%;
+      border-radius: 12px;
+      overflow: hidden;
+      border: 1px solid rgba(255,255,255,0.2);
+    }
+    .map-notice {
+      font-size: 0.8rem;
+      color: #fca5a5;
+      margin-top: 8px;
+      text-align: center;
+    }
+
+    /* Time-Slip Selfie Overlay Frame */
+    #selfie-modal {
+      display: none;
+      position: absolute;
+      top: 0; left: 0; width: 100%; height: 100%;
+      background: rgba(0, 0, 0, 0.82);
+      backdrop-filter: blur(8px);
+      z-index: 300;
+      justify-content: center;
+      align-items: center;
+      flex-direction: column;
+    }
+    .selfie-card {
+      position: relative;
+      width: 360px;
+      height: 520px;
+      background: #111827;
+      border: 3px solid var(--accent-blue);
+      border-radius: 20px;
+      overflow: hidden;
+      box-shadow: 0 20px 50px rgba(0,0,0,0.8);
+      display: flex;
+      flex-direction: column;
+    }
+    .selfie-viewfinder {
+      position: relative;
+      flex: 1;
+      background: #000;
+      overflow: hidden;
+    }
+    #selfie-bg-preview {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+      position: absolute;
+      top: 0; left: 0;
+    }
+    #webcam-video {
+      position: absolute;
+      bottom: 20px;
+      right: 20px;
+      width: 130px;
+      height: 170px;
+      border-radius: 12px;
+      border: 2px solid #fff;
+      object-fit: cover;
+      box-shadow: 0 8px 20px rgba(0,0,0,0.6);
+      transform: scaleX(-1);
+    }
+    .time-stamp-overlay {
+      position: absolute;
+      top: 15px;
+      left: 15px;
+      background: rgba(0, 0, 0, 0.7);
+      border: 1px solid rgba(255,255,255,0.3);
+      padding: 6px 12px;
+      border-radius: 8px;
+      font-size: 0.75rem;
+      color: #fef08a;
+    }
+    .selfie-controls {
+      padding: 15px;
+      background: #1f2937;
+      display: flex;
+      justify-content: space-around;
+      align-items: center;
+    }
+    .snap-btn {
+      width: 60px;
+      height: 60px;
+      border-radius: 50%;
+      background: #ef4444;
+      border: 4px solid #ffffff;
+      color: white;
+      font-size: 1.4rem;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      transition: transform 0.1s;
+    }
+    .snap-btn:active { transform: scale(0.9); }
+
+    /* Quests Panel */
+    #quest-modal {
+      display: none;
+      position: absolute;
+      top: 20px; right: 90px;
+      width: 320px;
+      max-height: 80vh;
+      background: var(--panel-bg);
+      border: 1px solid rgba(255,255,255,0.2);
+      border-radius: 16px;
+      padding: 20px;
+      z-index: 150;
+      backdrop-filter: blur(15px);
+      overflow-y: auto;
+    }
+    .panel-title { font-size: 1.1rem; font-weight: 700; margin-bottom: 12px; color: #60a5fa; display: flex; justify-content: space-between; align-items: center;}
+    .quest-card {
+      background: rgba(255,255,255,0.05);
+      border: 1px solid rgba(255,255,255,0.1);
+      padding: 12px;
+      border-radius: 10px;
+      margin-bottom: 10px;
+    }
+    .quest-title { font-size: 0.9rem; font-weight: 700; margin-bottom: 4px; }
+    .quest-reward { font-size: 0.8rem; color: var(--accent-gold); font-weight: 600; }
+    .quest-btn {
+      margin-top: 8px;
+      width: 100%;
+      padding: 6px;
+      background: var(--accent-blue);
+      border: none;
+      border-radius: 6px;
+      color: white;
+      font-size: 0.8rem;
+      font-weight: 600;
+      cursor: pointer;
+    }
+
+    #capture-canvas { display: none; }
+
+    /* Toast Notification */
+    #toast {
+      position: absolute;
+      top: 80px;
+      left: 50%;
+      transform: translateX(-50%) translateY(-20px);
+      background: #10b981;
+      color: white;
+      padding: 10px 24px;
+      border-radius: 30px;
+      font-weight: 700;
+      font-size: 0.9rem;
+      opacity: 0;
+      transition: all 0.3s ease;
+      z-index: 400;
+      box-shadow: 0 10px 20px rgba(16, 185, 129, 0.4);
+    }
+    #toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
+  </style>
+</head>
+<body>
+
+  <!-- Header Chrome -->
+  <header>
+    <div class="logo">
+      <i class="fa-solid fa-hourglass-half"></i>
+      <span>광명시 시간의 지층</span>
+    </div>
+    <div class="status-bar">
+      <div class="rank-badge"><i class="fa-solid fa-map-pin"></i> 광명시 전역 고정 지도</div>
+      <div class="point-badge"><i class="fa-solid fa-coins"></i> <span id="point-val">100</span> P</div>
+    </div>
+  </header>
+
+  <!-- Main Viewport Stage -->
+  <div id="app-viewport">
+    
+    <!-- Background Roadview Simulation Canvas -->
+    <div id="roadview-stage"></div>
+
+    <!-- Location Selector HUD -->
+    <div class="hud-panel location-picker">
+      <i class="fa-solid fa-location-dot" style="color: #ef4444;"></i>
+      <label for="locationSelect" style="font-size:0.85rem; font-weight:600;">광명 거점:</label>
+      <select id="locationSelect">
+        <option value="gwangmyeong_stn">광명사거리역 (전통시장)</option>
+        <option value="cheolsan_stn">철산역 (상업지구)</option>
+        <option value="soha_dong">소하동 (옛 마을/한내천)</option>
+        <option value="gwangmyeong_cave">광명동굴 (가학 광산)</option>
+        <option value="ktx_station">KTX 광명역 (역세권)</option>
+      </select>
+    </div>
+
+    <!-- Right Action Dock Buttons -->
+    <div class="hud-panel action-dock">
+      <button class="dock-btn" onclick="toggleMapModal()" title="광명시 지도 열기">
+        <i class="fa-solid fa-map-location-dot" style="color: #60a5fa;"></i>
+        <span>지도</span>
+      </button>
+      <button class="dock-btn" onclick="openSelfieModal()" title="타임슬립 셀카 찍기">
+        <i class="fa-solid fa-camera"></i>
+        <span>셀카</span>
+      </button>
+      <button class="dock-btn" onclick="toggleQuestPanel()" title="지층 퀘스트">
+        <i class="fa-solid fa-scroll"></i>
+        <span>퀘스트</span>
+      </button>
+    </div>
+
+    <!-- Time Slider Control Panel -->
+    <div class="hud-panel time-slider-panel">
+      <div class="slider-header">
+        <span style="font-size:0.85rem; font-weight:600; color:#9ca3af;"><i class="fa-solid fa-clock-rotate-left"></i> 광명시 시간의 지층 연도</span>
+        <span class="year-label" id="current-year-display">2008년</span>
+      </div>
+      <input type="range" class="time-slider" id="timeSlider" min="0" max="4" value="0" step="1">
+      <div class="year-ticks">
+        <span>2008년</span>
+        <span>2012년</span>
+        <span>2016년</span>
+        <span>2021년</span>
+        <span>2026년(현재)</span>
+      </div>
+    </div>
+
+    <!-- Gwangmyeong Map Modal -->
+    <div id="map-modal">
+      <div class="map-header">
+        <div class="map-header-title">
+          <i class="fa-solid fa-map"></i> 광명시 시공간 지도 탐색기
+        </div>
+        <i class="fa-solid fa-xmark fa-xl" style="cursor:pointer; color:#9ca3af;" onclick="toggleMapModal()"></i>
+      </div>
+      <div id="gm-map-container"></div>
+      <div class="map-notice">
+        🔒 본 지도는 광명시 영역(경계) 내로만 제한되어 있습니다. 핀을 클릭하면 해당 거점으로 이동합니다.
+      </div>
+    </div>
+
+    <!-- Quest Panel -->
+    <div id="quest-modal">
+      <div class="panel-title">
+        <span><i class="fa-solid fa-crosshairs"></i> 광명 탐험 퀘스트</span>
+        <i class="fa-solid fa-xmark" style="cursor:pointer;" onclick="toggleQuestPanel()"></i>
+      </div>
+      <div class="quest-card">
+        <div class="quest-title">2008년 광명사거리 셀카 찍기</div>
+        <div class="quest-reward">+150 P 획득</div>
+        <button class="quest-btn" onclick="openSelfieModal()">미션 수행하기</button>
+      </div>
+      <div class="quest-card">
+        <div class="quest-title">광명동굴 지층 사진 등록</div>
+        <div class="quest-reward">+200 P 획득</div>
+        <button class="quest-btn" onclick="completeQuest('광명동굴 지층 등록 완료!', 200)">업로드하기</button>
+      </div>
+    </div>
+
+    <!-- Time-Slip Selfie Modal -->
+    <div id="selfie-modal">
+      <div class="selfie-card">
+        <div class="selfie-viewfinder" id="viewfinder">
+          <img id="selfie-bg-preview" src="" alt="과거 로드뷰 배경">
+          <video id="webcam-video" autoplay playsinline></video>
+          <div class="time-stamp-overlay" id="timestamp-tag">
+            2008.05.12 광명사거리역 · 시공간 지층
+          </div>
+        </div>
+        <div class="selfie-controls">
+          <button style="background:none; border:none; color:white; cursor:pointer;" onclick="closeSelfieModal()"><i class="fa-solid fa-xmark fa-xl"></i></button>
+          <button class="snap-btn" onclick="takeSelfieSnapshot()"><i class="fa-solid fa-aperture"></i></button>
+          <button style="background:none; border:none; color:white; cursor:pointer;" onclick="showToast('필터 효과 적용됨')"><i class="fa-solid fa-wand-magic-sparkles fa-xl"></i></button>
+        </div>
+      </div>
+    </div>
+
+  </div>
+
+  <!-- Toast Element -->
+  <div id="toast">포인트가 적립되었습니다!</div>
+
+  <canvas id="capture-canvas" width="600" height="800"></canvas>
+
+  <script>
+    // --- Gwangmyeong Bounding Box Coordinates (Map Restriction) ---
+    // Sw Bounds: [37.385, 126.800] / Ne Bounds: [37.525, 126.915]
+    const gwangmyeongBounds = L.latLngBounds(
+      L.latLng(37.385, 126.800), // South-West
+      L.latLng(37.525, 126.915)  // North-East
+    );
+
+    // Location Data for Gwangmyeong Spots
+    const locationData = {
+      gwangmyeong_stn: {
+        name: "광명사거리역",
+        coords: [37.4793, 126.8548],
+        layers: [
+          { year: "2008", img: "https://images.unsplash.com/photo-1542051841857-5f90071e7989?auto=format&fit=crop&w=1200&q=80", filter: "filter-2008" },
+          { year: "2012", img: "https://images.unsplash.com/photo-1514565131-fce0801e5785?auto=format&fit=crop&w=1200&q=80", filter: "filter-2012" },
+          { year: "2016", img: "https://images.unsplash.com/photo-1509114397022-ed747cca3f65?auto=format&fit=crop&w=1200&q=80", filter: "filter-2016" },
+          { year: "2021", img: "https://images.unsplash.com/photo-1486406146926-c627a92ad1ab?auto=format&fit=crop&w=1200&q=80", filter: "filter-2021" },
+          { year: "2026", img: "https://images.unsplash.com/photo-1519501025264-65ba15a82390?auto=format&fit=crop&w=1200&q=80", filter: "filter-2026" }
+        ]
+      },
+      cheolsan_stn: {
+        name: "철산역 상업지구",
+        coords: [37.4761, 126.8680],
+        layers: [
+          { year: "2008", img: "https://images.unsplash.com/photo-1513694203232-719a280e022f?auto=format&fit=crop&w=1200&q=80", filter: "filter-2008" },
+          { year: "2012", img: "https://images.unsplash.com/photo-1497366216548-37526070297c?auto=format&fit=crop&w=1200&q=80", filter: "filter-2012" },
+          { year: "2016", img: "https://images.unsplash.com/photo-1486406146926-c627a92ad1ab?auto=format&fit=crop&w=1200&q=80", filter: "filter-2016" },
+          { year: "2021", img: "https://images.unsplash.com/photo-1497215728101-856f4ea42174?auto=format&fit=crop&w=1200&q=80", filter: "filter-2021" },
+          { year: "2026", img: "https://images.unsplash.com/photo-1519501025264-65ba15a82390?auto=format&fit=crop&w=1200&q=80", filter: "filter-2026" }
+        ]
+      },
+      soha_dong: {
+        name: "소하동 (한내천/옛마을)",
+        coords: [37.4475, 126.8850],
+        layers: [
+          { year: "2008", img: "https://images.unsplash.com/photo-1448375240586-882707db888b?auto=format&fit=crop&w=1200&q=80", filter: "filter-2008" },
+          { year: "2012", img: "https://images.unsplash.com/photo-1500382017468-9049fed747ef?auto=format&fit=crop&w=1200&q=80", filter: "filter-2012" },
+          { year: "2016", img: "https://images.unsplash.com/photo-1470071459604-3b5ec3a7fe05?auto=format&fit=crop&w=1200&q=80", filter: "filter-2016" },
+          { year: "2021", img: "https://images.unsplash.com/photo-1441974231531-c6227db76b6e?auto=format&fit=crop&w=1200&q=80", filter: "filter-2021" },
+          { year: "2026", img: "https://images.unsplash.com/photo-1518173946687-a4c8a383392e?auto=format&fit=crop&w=1200&q=80", filter: "filter-2026" }
+        ]
+      },
+      gwangmyeong_cave: {
+        name: "광명동굴 (가학산)",
+        coords: [37.4267, 126.8664],
+        layers: [
+          { year: "2008", img: "https://images.unsplash.com/photo-1518709268805-4e9042af9f23?auto=format&fit=crop&w=1200&q=80", filter: "filter-2008" },
+          { year: "2012", img: "https://images.unsplash.com/photo-1509114397022-ed747cca3f65?auto=format&fit=crop&w=1200&q=80", filter: "filter-2012" },
+          { year: "2016", img: "https://images.unsplash.com/photo-1513694203232-719a280e022f?auto=format&fit=crop&w=1200&q=80", filter: "filter-2016" },
+          { year: "2021", img: "https://images.unsplash.com/photo-1486406146926-c627a92ad1ab?auto=format&fit=crop&w=1200&q=80", filter: "filter-2021" },
+          { year: "2026", img: "https://images.unsplash.com/photo-1519501025264-65ba15a82390?auto=format&fit=crop&w=1200&q=80", filter: "filter-2026" }
+        ]
+      },
+      ktx_station: {
+        name: "KTX 광명역",
+        coords: [37.4162, 126.8845],
+        layers: [
+          { year: "2008", img: "https://images.unsplash.com/photo-1470071459604-3b5ec3a7fe05?auto=format&fit=crop&w=1200&q=80", filter: "filter-2008" },
+          { year: "2012", img: "https://images.unsplash.com/photo-1486406146926-c627a92ad1ab?auto=format&fit=crop&w=1200&q=80", filter: "filter-2012" },
+          { year: "2016", img: "https://images.unsplash.com/photo-1497215728101-856f4ea42174?auto=format&fit=crop&w=1200&q=80", filter: "filter-2016" },
+          { year: "2021", img: "https://images.unsplash.com/photo-1519501025264-65ba15a82390?auto=format&fit=crop&w=1200&q=80", filter: "filter-2021" },
+          { year: "2026", img: "https://images.unsplash.com/photo-1518173946687-a4c8a383392e?auto=format&fit=crop&w=1200&q=80", filter: "filter-2026" }
+        ]
+      }
+    };
+
+    // App State
+    let currentLocKey = "gwangmyeong_stn";
+    let currentYearIdx = 0;
+    let points = 100;
+    let webcamStream = null;
+    let map = null;
+
+    // DOM Elements
+    const stage = document.getElementById('roadview-stage');
+    const timeSlider = document.getElementById('timeSlider');
+    const yearDisplay = document.getElementById('current-year-display');
+    const locationSelect = document.getElementById('locationSelect');
+
+    // Initialize App
+    function init() {
+      updateStageView();
+
+      timeSlider.addEventListener('input', (e) => {
+        currentYearIdx = parseInt(e.target.value);
+        updateStageView();
+      });
+
+      locationSelect.addEventListener('change', (e) => {
+        changeLocation(e.target.value);
+      });
+    }
+
+    function changeLocation(key) {
+      currentLocKey = key;
+      locationSelect.value = key;
+      currentYearIdx = 0;
+      timeSlider.value = 0;
+      updateStageView();
+      showToast(`📍 [${locationData[key].name}] (으)로 시공간 이동`);
+    }
+
+    // Update Stage Background & Filters
+    function updateStageView() {
+      const loc = locationData[currentLocKey];
+      const layer = loc.layers[currentYearIdx];
+
+      stage.style.backgroundImage = `url('${layer.img}')`;
+      stage.className = layer.filter;
+      yearDisplay.innerText = `${layer.year}년`;
+      document.getElementById('timestamp-tag').innerText = `${layer.year}.05.12 ${loc.name} · 시간의 지층`;
+      document.getElementById('selfie-bg-preview').src = layer.img;
+    }
+
+    // --- Initialize Restricted Gwangmyeong Map ---
+    function initGwangmyeongMap() {
+      if (map) return; // Prevent re-initialization
+
+      // Center around Gwangmyeong City Center: [37.455, 126.865]
+      map = L.map('gm-map-container', {
+        center: [37.455, 126.865],
+        zoom: 13,
+        minZoom: 12,
+        maxZoom: 16,
+        maxBounds: gwangmyeongBounds,
+        maxBoundsViscosity: 1.0 // Strictly bounce back if dragged outside Gwangmyeong
+      });
+
+      // Dark Mode Tile Layer
+      L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', {
+        attribution: '&copy; OpenStreetMap contributors & CARTO',
+        subdomains: 'abcd',
+        maxZoom: 19
+      }).addTo(map);
+
+      // Draw Gwangmyeong Boundary Highlight Rectangle
+      L.rectangle(gwangmyeongBounds, {
+        color: "#3b82f6",
+        weight: 2,
+        fillOpacity: 0.05,
+        dashArray: "5, 10"
+      }).addTo(map);
+
+      // Add Location Markers on Gwangmyeong Map
+      Object.keys(locationData).forEach((key) => {
+        const item = locationData[key];
+        const marker = L.marker(item.coords).addTo(map);
+        marker.bindPopup(`<b>${item.name}</b><br><button style="margin-top:5px; padding:4px 8px; background:#3b82f6; color:white; border:none; border-radius:4px; cursor:pointer;" onclick="changeLocation('${key}'); toggleMapModal();">이 지층으로 이동</button>`);
+      });
+    }
+
+    function toggleMapModal() {
+      const modal = document.getElementById('map-modal');
+      const isVisible = (modal.style.display === 'flex');
+      
+      if (!isVisible) {
+        modal.style.display = 'flex';
+        setTimeout(() => {
+          initGwangmyeongMap();
+          map.invalidateSize(); // Fix map rendering inside modal
+        }, 100);
+      } else {
+        modal.style.display = 'none';
+      }
+    }
+
+    // --- Selfie Modal & Camera Controls ---
+    async function openSelfieModal() {
+      const modal = document.getElementById('selfie-modal');
+      modal.style.display = 'flex';
+
+      try {
+        webcamStream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'user' }, audio: false });
+        document.getElementById('webcam-video').srcObject = webcamStream;
+      } catch (err) {
+        showToast("카메라 권한을 확인해주세요.");
+      }
+    }
+
+    function closeSelfieModal() {
+      document.getElementById('selfie-modal').style.display = 'none';
+      if (webcamStream) {
+        webcamStream.getTracks().forEach(track => track.stop());
+      }
+    }
+
+    function takeSelfieSnapshot() {
+      const canvas = document.getElementById('capture-canvas');
+      const ctx = canvas.getContext('2d');
+      const loc = locationData[currentLocKey];
+      const layer = loc.layers[currentYearIdx];
+
+      const bgImg = new Image();
+      bgImg.crossOrigin = "anonymous";
+      bgImg.src = layer.img;
+
+      bgImg.onload = () => {
+        ctx.drawImage(bgImg, 0, 0, canvas.width, canvas.height);
+
+        const video = document.getElementById('webcam-video');
+        if (webcamStream) {
+          ctx.save();
+          ctx.scale(-1, 1);
+          ctx.drawImage(video, -canvas.width + 20, canvas.height - 240, 200, 220);
+          ctx.restore();
+        }
+
+        ctx.fillStyle = "rgba(0, 0, 0, 0.75)";
+        ctx.fillRect(20, 20, 420, 50);
+        ctx.fillStyle = "#fef08a";
+        ctx.font = "bold 18px Pretendard";
+        ctx.fillText(`⏳ ${layer.year}년 ${loc.name} 타임슬립 셀카`, 35, 52);
+
+        addPoints(150);
+        showToast("광명시 타임슬립 셀카 수집 완료! +150P");
+        closeSelfieModal();
+      };
+    }
+
+    // --- Quest Controls ---
+    function toggleQuestPanel() {
+      const panel = document.getElementById('quest-modal');
+      panel.style.display = (panel.style.display === 'block') ? 'none' : 'block';
+    }
+
+    function addPoints(val) {
+      points += val;
+      document.getElementById('point-val').innerText = points;
+    }
+
+    function completeQuest(msg, reward) {
+      addPoints(reward);
+      showToast(`${msg} (+${reward}P)`);
+      toggleQuestPanel();
+    }
+
+    function showToast(msg) {
+      const toast = document.getElementById('toast');
+      toast.innerText = msg;
+      toast.classList.add('show');
+      setTimeout(() => toast.classList.remove('show'), 2500);
+    }
+
+    window.onload = init;
+  </script>
+</body>
+</html>
