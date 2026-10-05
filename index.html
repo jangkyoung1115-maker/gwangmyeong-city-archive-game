@@ -25,8 +25,8 @@
 
         /* 상단 지도 & 로드뷰 영역 */
         #view-section {
-            height: 40vh; min-height: 230px; width: 100%; position: relative; background: #181b22;
-            border-bottom: 2px solid #2d323e;
+            height: 38vh; min-height: 220px; width: 100%; position: relative; background: #181b22;
+            border-bottom: 2px solid #2d323e; flex-shrink: 0;
         }
         #map, #roadview-container { width: 100%; height: 100%; position: absolute; top: 0; left: 0; }
         #roadview-container { display: none; }
@@ -45,33 +45,37 @@
         /* 하단 지층 아카이브 패널 */
         #strata-panel { flex: 1; background: #14171d; display: flex; flex-direction: column; padding: 16px; overflow-y: auto; }
         
-        .panel-header { margin-bottom: 10px; }
-        .panel-header h2 { font-size: 1.05rem; color: #fff; margin-bottom: 2px; display: flex; align-items: center; gap: 6px; }
+        .panel-header { margin-bottom: 12px; }
+        .panel-header h2 { font-size: 1.05rem; color: #fff; margin-bottom: 4px; display: flex; align-items: center; gap: 6px; }
         .panel-header p { font-size: 0.78rem; color: #8b949e; line-height: 1.35; }
 
-        /* 동별 필터 버튼 스크롤 */
+        /* 동별 필터 버튼 영역 (모바일 터치 최적화) */
         .category-filter {
-            display: flex; gap: 6px; overflow-x: auto; padding-bottom: 8px; margin-bottom: 10px;
-            scrollbar-width: none;
+            display: flex; gap: 8px; overflow-x: auto; padding: 6px 2px 10px 2px; margin-bottom: 12px;
+            -webkit-overflow-scrolling: touch; scrollbar-width: none; flex-shrink: 0;
         }
         .category-filter::-webkit-scrollbar { display: none; }
+        
         .cat-btn {
-            background: #1c212b; border: 1px solid #2d323e; color: #9ca3af;
-            padding: 5px 12px; border-radius: 14px; font-size: 0.75rem; font-weight: 600;
+            background: #1c212b; border: 1px solid #374151; color: #d1d5db;
+            padding: 8px 16px; border-radius: 20px; font-size: 0.85rem; font-weight: 700;
             white-space: nowrap; cursor: pointer; transition: all 0.2s;
+            display: inline-flex; align-items: center; justify-content: center;
+            line-height: 1.2; height: 36px; flex-shrink: 0;
         }
-        .cat-btn.active { background: #2563eb; color: #fff; border-color: #3b82f6; }
+        .cat-btn.active { background: #2563eb; color: #fff; border-color: #60a5fa; box-shadow: 0 0 8px rgba(37, 99, 235, 0.4); }
 
         .area-badge {
             display: inline-flex; align-items: center; gap: 6px; background: rgba(37, 99, 235, 0.2);
-            color: #60a5fa; border: 1px solid rgba(59, 130, 246, 0.4); padding: 5px 12px;
-            border-radius: 14px; font-size: 0.78rem; font-weight: 700; margin-bottom: 12px; width: fit-content;
+            color: #60a5fa; border: 1px solid rgba(59, 130, 246, 0.4); padding: 6px 14px;
+            border-radius: 14px; font-size: 0.8rem; font-weight: 700; margin-bottom: 12px; width: fit-content;
         }
 
         .upload-btn {
-            background: #2563eb; color: white; padding: 11px; border: none; border-radius: 8px;
-            font-weight: 700; font-size: 0.85rem; cursor: pointer; margin-bottom: 14px;
+            background: #2563eb; color: white; padding: 12px; border: none; border-radius: 8px;
+            font-weight: 700; font-size: 0.88rem; cursor: pointer; margin-bottom: 14px;
             display: flex; align-items: center; justify-content: center; gap: 6px; transition: background 0.2s;
+            flex-shrink: 0;
         }
         .upload-btn:hover { background: #1d4ed8; }
 
@@ -97,7 +101,7 @@
         .strata-year { font-size: 0.92rem; font-weight: 800; color: #60a5fa; display: flex; align-items: center; gap: 6px; }
         
         .dong-tag {
-            font-size: 0.7rem; padding: 2px 8px; border-radius: 10px; font-weight: 700;
+            font-size: 0.72rem; padding: 3px 10px; border-radius: 10px; font-weight: 700;
             background: rgba(16, 185, 129, 0.2); color: #34d399; border: 1px solid rgba(16, 185, 129, 0.4);
             cursor: pointer;
         }
@@ -112,8 +116,8 @@
 
         .card-actions { display: flex; justify-content: flex-end; gap: 6px; border-top: 1px solid #2a303c; padding-top: 8px; }
         .act-btn {
-            background: none; border: 1px solid #374151; color: #9ca3af; padding: 3px 8px;
-            border-radius: 4px; font-size: 0.7rem; cursor: pointer; transition: all 0.2s;
+            background: none; border: 1px solid #374151; color: #9ca3af; padding: 4px 10px;
+            border-radius: 4px; font-size: 0.72rem; cursor: pointer; transition: all 0.2s;
         }
         .act-btn:hover { background: #374151; color: #fff; }
         .act-btn.del:hover { background: #ef4444; color: #fff; border-color: #ef4444; }
@@ -159,7 +163,7 @@
             <p id="loc-desc">사진 EXIF 정보(GPS/날짜)를 통해 광명시 동별 구역에 자동으로 아카이브됩니다.</p>
         </div>
 
-        <!-- 광명시 주요 행정동 필터 -->
+        <!-- 광명시 주요 행정동 필터 (버튼 스타일 개선 완료) -->
         <div class="category-filter" id="dong-filter-bar">
             <button class="cat-btn active" onclick="filterDong('ALL', this)">전체 동 보기</button>
             <button class="cat-btn" onclick="filterDong('철산동', this)">철산동</button>
@@ -198,7 +202,6 @@
     let selectedDong = 'ALL';
     let currentLatLng = null;
 
-    // 광명시 각 동별 중심 대표 좌표
     const DONG_COORDS = {
         'ALL': { lat: 37.4786, lng: 126.8645, zoom: 5 },
         '철산동': { lat: 37.4815, lng: 126.8675, zoom: 4 },
@@ -212,7 +215,6 @@
 
     const STORAGE_KEY = 'GM_STRATA_DONG_SEEDS_V7';
 
-    // 기본 가상 샘플 데이터
     const initialSampleData = [
         {
             id: 1,
@@ -295,11 +297,9 @@
         }
     }
 
-    // 동 선택 시 지도 및 로드뷰 위치 자동 이동 기능
     function filterDong(dong, el) {
         selectedDong = dong;
 
-        // 상단 동 버튼 활성화 변경
         document.querySelectorAll('.cat-btn').forEach(btn => {
             if (btn.innerText.includes(dong) || (dong === 'ALL' && btn.innerText.includes('전체'))) {
                 btn.classList.add('active');
@@ -310,7 +310,6 @@
 
         document.getElementById('current-area-name').innerText = (dong === 'ALL') ? "전체 광명시 지층" : `📍 광명시 ${dong} 지층`;
 
-        // 해당 동 좌표로 지도 이동
         const targetPos = DONG_COORDS[dong] || DONG_COORDS['ALL'];
         const moveLatLng = new kakao.maps.LatLng(targetPos.lat, targetPos.lng);
         
@@ -352,7 +351,6 @@
         });
     }
 
-    // 사진 용량 자동 압축 함수 (localStorage 보관 지원)
     function compressImage(file, callback) {
         const reader = new FileReader();
         reader.onload = function(e) {
@@ -361,7 +359,7 @@
                 const canvas = document.createElement('canvas');
                 let width = img.width;
                 let height = img.height;
-                const MAX_WIDTH = 800; // 가로 최대 800px 축소
+                const MAX_WIDTH = 800;
 
                 if (width > MAX_WIDTH) {
                     height = Math.round((height * MAX_WIDTH) / width);
@@ -373,7 +371,7 @@
                 const ctx = canvas.getContext("2d");
                 ctx.drawImage(img, 0, 0, width, height);
 
-                const compressedDataUrl = canvas.toDataURL("image/jpeg", 0.7); // 70% 화질 압축
+                const compressedDataUrl = canvas.toDataURL("image/jpeg", 0.7);
                 callback(compressedDataUrl);
             };
             img.src = e.target.result;
