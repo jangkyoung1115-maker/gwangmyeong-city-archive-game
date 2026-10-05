@@ -108,7 +108,16 @@
         .strata-img { width: 100%; max-height: 220px; object-fit: cover; display: block; cursor: pointer; transition: transform 0.2s; }
         .strata-img:hover { transform: scale(1.02); }
 
-        .strata-desc { font-size: 0.82rem; color: #d1d5db; line-height: 1.4; }
+        .strata-desc { font-size: 0.82rem; color: #d1d5db; line-height: 1.4; margin-bottom: 8px; }
+
+        /* 카드 수정 및 삭제 버튼 패널 */
+        .card-actions { display: flex; justify-content: flex-end; gap: 6px; border-top: 1px solid #2a303c; padding-top: 8px; }
+        .act-btn {
+            background: none; border: 1px solid #374151; color: #9ca3af; padding: 3px 8px;
+            border-radius: 4px; font-size: 0.7rem; cursor: pointer; transition: all 0.2s;
+        }
+        .act-btn:hover { background: #374151; color: #fff; }
+        .act-btn.del:hover { background: #ef4444; color: #fff; border-color: #ef4444; }
 
         .empty-state { text-align: center; padding: 30px 10px; color: #6b7280; font-size: 0.85rem; }
 
@@ -187,11 +196,12 @@
 
 <script>
     let map, geocoder, roadview, roadviewClient, currentMarker = null;
+    let markersOnMap = [];
     let selectedDong = 'ALL';
     let currentLatLng = null;
     const GM_CENTER = { lat: 37.4786, lng: 126.8645 }; // 광명시청 인근
 
-    const STORAGE_KEY = 'GM_STRATA_DONG_SEEDS_V5';
+    const STORAGE_KEY = 'GM_STRATA_DONG_SEEDS_V6';
 
     // 광명시 기본 예시 데이터
     const initialSampleData = [
@@ -296,6 +306,10 @@
     }
 
     function updateMapMarkers() {
+        // 기존 마커 전체 제거
+        markersOnMap.forEach(m => m.setMap(null));
+        markersOnMap = [];
+
         userStrataStore.forEach(item => {
             const marker = new kakao.maps.Marker({
                 position: new kakao.maps.LatLng(item.lat, item.lng),
@@ -308,10 +322,12 @@
                 filterDong(item.dong, null);
                 switchView('rv');
             });
+
+            markersOnMap.push(marker);
         });
     }
 
-    // EXIF GPS 도/분/초 -> 십진수 변환 함수
+    // EXIF GPS 도/분/초 -> 십진수 변환
     function convertDMSToDD(dms, ref) {
         if (!dms) return null;
         let dd = dms[0] + (dms[1] / 60) + (dms[2] / 3600);
@@ -324,16 +340,15 @@
         geocoder.coord2RegionCode(lng, lat, function(result, status) {
             if (status === kakao.maps.services.Status.OK) {
                 for (let i = 0; i < result.length; i++) {
-                    if (result[i].region_type === 'H') { // 행정동
-                        let dongName = result[i].region_3depth_name; // 예: 철산3동
-                        // 숫자 정제 (예: 철산3동 -> 철산동)
+                    if (result[i].region_type === 'H') {
+                        let dongName = result[i].region_3depth_name;
                         let cleanDong = dongName.replace(/[0-9]/g, '');
                         callback(cleanDong, dongName);
                         return;
                     }
                 }
             }
-            callback("광명동", "광명동"); // 기본값 fallback
+            callback("광명동", "광명동");
         });
     }
 
@@ -346,7 +361,6 @@
             const imgDataUrl = e.target.result;
 
             EXIF.getData(file, function() {
-                // 1. EXIF 촬영 날짜 추출
                 let photoDateStr = EXIF.getTag(this, "DateTimeOriginal") || EXIF.getTag(this, "DateTime");
                 let formattedDate = "";
                 let extractedYear = "";
@@ -365,7 +379,6 @@
                     extractedYear = `${today.getFullYear()}년`;
                 }
 
-                // 2. EXIF GPS 정보 추출
                 const latDMS = EXIF.getTag(this, "GPSLatitude");
                 const latRef = EXIF.getTag(this, "GPSLatitudeRef");
                 const lngDMS = EXIF.getTag(this, "GPSLongitude");
@@ -379,7 +392,6 @@
                     lng = convertDMSToDD(lngDMS, lngRef);
                 }
 
-                // 3. 카카오 지오코더로 행정동 자동 추출
                 getDongFromCoords(lat, lng, function(cleanDong, fullDongName) {
                     const userYear = prompt(`사진 촬영 연도를 확인해 주세요:`, extractedYear) || extractedYear;
                     const userDong = prompt(`사진이 위치한 광명시 '동' 구역입니다:`, cleanDong) || cleanDong;
@@ -406,6 +418,36 @@
             });
         };
         reader.readAsDataURL(file);
+    }
+
+    // 카드 내용 수정 기능
+    function editCard(id) {
+        const item = userStrataStore.find(seed => seed.id === id);
+        if (!item) return;
+
+        const newYear = prompt("연도를 수정합니다:", item.year) || item.year;
+        const newDong = prompt("동 구역을 수정합니다 (예: 철산동, 하안동):", item.dong) || item.dong;
+        const newDate = prompt("촬영 날짜를 수정합니다 (YYYY-MM-DD):", item.photoDate) || item.photoDate;
+        const newDesc = prompt("설명 메모를 수정합니다:", item.desc) || item.desc;
+
+        item.year = newYear;
+        item.dong = newDong;
+        item.photoDate = newDate;
+        item.desc = newDesc;
+
+        saveUserSeeds();
+        updateMapMarkers();
+        renderStrataTimeline();
+    }
+
+    // 카드 삭제 기능
+    function deleteCard(id) {
+        if (!confirm("이 지층 사진 기록을 정말 삭제하시겠습니까?")) return;
+
+        userStrataStore = userStrataStore.filter(seed => seed.id !== id);
+        saveUserSeeds();
+        updateMapMarkers();
+        renderStrataTimeline();
     }
 
     function renderStrataTimeline() {
@@ -438,6 +480,10 @@
                     <img class="strata-img" src="${item.img}" onclick="openModal('${item.img}')" title="클릭하여 크게 보기">
                 </div>
                 <div class="strata-desc">${item.desc}</div>
+                <div class="card-actions">
+                    <button class="act-btn" onclick="editCard(${item.id})"><i class="fa-solid fa-pen"></i> 수정</button>
+                    <button class="act-btn del" onclick="deleteCard(${item.id})"><i class="fa-solid fa-trash"></i> 삭제</button>
+                </div>
             `;
             list.appendChild(card);
         });
