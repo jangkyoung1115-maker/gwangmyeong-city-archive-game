@@ -49,7 +49,7 @@
         .panel-header h2 { font-size: 1.05rem; color: #fff; margin-bottom: 2px; display: flex; align-items: center; gap: 6px; }
         .panel-header p { font-size: 0.78rem; color: #8b949e; line-height: 1.35; }
 
-        /* 카테고리 필터 버튼 그룹 */
+        /* 동별 필터 버튼 스크롤 */
         .category-filter {
             display: flex; gap: 6px; overflow-x: auto; padding-bottom: 8px; margin-bottom: 10px;
             scrollbar-width: none;
@@ -57,14 +57,14 @@
         .category-filter::-webkit-scrollbar { display: none; }
         .cat-btn {
             background: #1c212b; border: 1px solid #2d323e; color: #9ca3af;
-            padding: 5px 10px; border-radius: 14px; font-size: 0.75rem; font-weight: 600;
+            padding: 5px 12px; border-radius: 14px; font-size: 0.75rem; font-weight: 600;
             white-space: nowrap; cursor: pointer; transition: all 0.2s;
         }
         .cat-btn.active { background: #2563eb; color: #fff; border-color: #3b82f6; }
 
         .area-badge {
             display: inline-flex; align-items: center; gap: 6px; background: rgba(37, 99, 235, 0.2);
-            color: #60a5fa; border: 1px solid rgba(59, 130, 246, 0.4); padding: 5px 10px;
+            color: #60a5fa; border: 1px solid rgba(59, 130, 246, 0.4); padding: 5px 12px;
             border-radius: 14px; font-size: 0.78rem; font-weight: 700; margin-bottom: 12px; width: fit-content;
         }
 
@@ -96,13 +96,11 @@
         .strata-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 4px; }
         .strata-year { font-size: 0.92rem; font-weight: 800; color: #60a5fa; display: flex; align-items: center; gap: 6px; }
         
-        .type-tag { font-size: 0.68rem; padding: 2px 6px; border-radius: 4px; margin-right: 4px; font-weight: 700; }
-        .type-동 { background: rgba(16, 185, 129, 0.2); color: #34d399; border: 1px solid rgba(16, 185, 129, 0.4); }
-        .type-아파트 { background: rgba(59, 130, 246, 0.2); color: #93c5fd; border: 1px solid rgba(59, 130, 246, 0.4); }
-        .type-학교 { background: rgba(245, 158, 11, 0.2); color: #fcd34d; border: 1px solid rgba(245, 158, 11, 0.4); }
-        .type-장소 { background: rgba(168, 85, 247, 0.2); color: #c084fc; border: 1px solid rgba(168, 85, 247, 0.4); }
-
-        .strata-area-tag { font-size: 0.72rem; color: #d1d5db; font-weight: 600; cursor: pointer; }
+        .dong-tag {
+            font-size: 0.7rem; padding: 2px 8px; border-radius: 10px; font-weight: 700;
+            background: rgba(16, 185, 129, 0.2); color: #34d399; border: 1px solid rgba(16, 185, 129, 0.4);
+            cursor: pointer;
+        }
 
         .strata-date { font-size: 0.73rem; color: #9ca3af; margin-bottom: 6px; }
 
@@ -114,7 +112,7 @@
 
         .empty-state { text-align: center; padding: 30px 10px; color: #6b7280; font-size: 0.85rem; }
 
-        /* 이미지 확대 모달 */
+        /* 이미지 모달 */
         #img-modal {
             display: none; position: fixed; top: 0; left: 0; width: 100vw; height: 100vh;
             background: rgba(0,0,0,0.85); z-index: 1000; align-items: center; justify-content: center; padding: 20px;
@@ -150,25 +148,28 @@
 
     <div id="strata-panel">
         <div class="panel-header">
-            <h2 id="loc-title"><i class="fa-solid fa-clock-rotate-left" style="color:#f59e0b;"></i> 광명 시공간 지층 기록</h2>
-            <p id="loc-desc">동별, 아파트별, 학교별로 누적된 연도별 과거 사진 지층입니다.</p>
+            <h2 id="loc-title"><i class="fa-solid fa-clock-rotate-left" style="color:#f59e0b;"></i> 광명 행정동별 시간 지층</h2>
+            <p id="loc-desc">사진 EXIF 정보(GPS/날짜)를 통해 광명시 동별 구역에 자동으로 아카이브됩니다.</p>
         </div>
 
-        <!-- 카테고리 분류 필터 -->
-        <div class="category-filter">
-            <button class="cat-btn active" onclick="filterCategory('ALL', this)">전체 보기</button>
-            <button class="cat-btn" onclick="filterCategory('아파트', this)">🏢 아파트별</button>
-            <button class="cat-btn" onclick="filterCategory('동', this)">🏘 동별</button>
-            <button class="cat-btn" onclick="filterCategory('학교', this)">🏫 학교별</button>
-            <button class="cat-btn" onclick="filterCategory('장소', this)">📍 명소·주요장소</button>
+        <!-- 광명시 주요 행정동 필터 -->
+        <div class="category-filter" id="dong-filter-bar">
+            <button class="cat-btn active" onclick="filterDong('ALL', this)">전체 동 보기</button>
+            <button class="cat-btn" onclick="filterDong('철산동', this)">철산동</button>
+            <button class="cat-btn" onclick="filterDong('하안동', this)">하안동</button>
+            <button class="cat-btn" onclick="filterDong('소하동', this)">소하동</button>
+            <button class="cat-btn" onclick="filterDong('광명동', this)">광명동</button>
+            <button class="cat-btn" onclick="filterDong('일직동', this)">일직동</button>
+            <button class="cat-btn" onclick="filterDong('학온동', this)">학온동</button>
+            <button class="cat-btn" onclick="filterDong('옥길동', this)">옥길동</button>
         </div>
 
         <div id="selected-area-display" class="area-badge">
-            <i class="fa-solid fa-location-dot"></i> <span id="current-area-name">전체 구역 지층 보기</span>
+            <i class="fa-solid fa-location-dot"></i> <span id="current-area-name">전체 광명시 지층</span>
         </div>
 
         <button class="upload-btn" onclick="document.getElementById('file-input').click()">
-            <i class="fa-solid fa-camera"></i> 내 과거 사진 올려 지층 쌓기
+            <i class="fa-solid fa-camera"></i> 내 과거 사진 올리기 (자동 구역 인식)
         </button>
         <input type="file" id="file-input" accept="image/*" style="display:none;" onchange="handlePhotoSeedUpload(event)">
 
@@ -176,55 +177,50 @@
     </div>
 </div>
 
-<!-- 이미지 확대 모달 -->
 <div id="img-modal" onclick="closeModal()">
     <span id="modal-close">&times;</span>
     <img id="modal-img" src="">
 </div>
 
-<!-- 카카오맵 SDK -->
+<!-- 카카오맵 SDK (services 라이브러리 포함) -->
 <script type="text/javascript" src="//dapi.kakao.com/v2/maps/sdk.js?appkey=Bd83a6ca29e1fbf4fa5da49d88125054&libraries=services"></script>
 
 <script>
-    let map, roadview, roadviewClient, currentMarker = null;
-    let selectedArea = null;
-    let selectedCategory = 'ALL';
+    let map, geocoder, roadview, roadviewClient, currentMarker = null;
+    let selectedDong = 'ALL';
     let currentLatLng = null;
-    const GM_CENTER = { lat: 37.4786, lng: 126.8645 };
+    const GM_CENTER = { lat: 37.4786, lng: 126.8645 }; // 광명시청 인근
 
-    const STORAGE_KEY = 'GM_STRATA_USER_SEEDS_V4';
+    const STORAGE_KEY = 'GM_STRATA_DONG_SEEDS_V5';
 
-    // 기본 예시 데이터 (광명시 중심 구역 샘플)
+    // 광명시 기본 예시 데이터
     const initialSampleData = [
         {
             id: 1,
-            category: "아파트",
-            areaName: "철산주공 13단지 1324동 부근",
+            dong: "철산동",
             year: "1998년",
             photoDate: "1998-05-10",
-            desc: "철산주공 13단지 조성 초기의 아파트 및 단지 풍경입니다.",
+            desc: "철산주공 13단지 인근 과거 아파트 단지 풍경입니다.",
             img: "https://images.unsplash.com/photo-1542601906990-b4d3fb778b09?w=600&auto=format&fit=crop&q=60",
             lat: 37.4795,
             lng: 126.8650
         },
         {
             id: 2,
-            category: "동",
-            areaName: "철산3동 주민센터 및 상가 거리",
-            year: "2005년",
-            photoDate: "2005-09-12",
-            desc: "2000년대 중반 철산3동 상업지구 인근의 거리 풍경입니다.",
+            dong: "하안동",
+            year: "2002년",
+            photoDate: "2002-06-18",
+            desc: "하안주공 단지 및 단독필지 거리 모습입니다.",
             img: "https://images.unsplash.com/photo-1512917774080-9991f1c4c750?w=600&auto=format&fit=crop&q=60",
-            lat: 37.4760,
+            lat: 37.4620,
             lng: 126.8680
         },
         {
             id: 3,
-            category: "장소",
-            areaName: "광명사거리역 전통시장 입구",
+            dong: "광명동",
             year: "2008년",
             photoDate: "2008-03-15",
-            desc: "현대화 사업 이전 광명 전통시장 정문 거리의 활기찬 모습입니다.",
+            desc: "광명사거리역 전통시장 정문 거리의 활기찬 옛 사진입니다.",
             img: "https://images.unsplash.com/photo-1448630360428-65456885c650?w=600&auto=format&fit=crop&q=60",
             lat: 37.4790,
             lng: 126.8548
@@ -237,7 +233,7 @@
         try {
             localStorage.setItem(STORAGE_KEY, JSON.stringify(userStrataStore));
         } catch (e) {
-            console.warn("로컬 스토리지 저장 용량 초과:", e);
+            console.warn("로컬 스토리지 용량 제한:", e);
         }
     }
 
@@ -248,16 +244,17 @@
             level: 4
         });
 
+        geocoder = new kakao.maps.services.Geocoder();
         const rvContainer = document.getElementById('roadview-container');
         roadview = new kakao.maps.Roadview(rvContainer);
         roadviewClient = new kakao.maps.RoadviewClient();
 
         kakao.maps.event.addListener(map, 'click', function(mouseEvent) {
             const latLng = mouseEvent.getLatLng();
-            loadRoadviewAndArea(latLng.getLat(), latLng.getLng(), null);
+            loadRoadviewAndPos(latLng.getLat(), latLng.getLng());
         });
 
-        loadRoadviewAndArea(GM_CENTER.lat, GM_CENTER.lng, null);
+        loadRoadviewAndPos(GM_CENTER.lat, GM_CENTER.lng);
         updateMapMarkers();
     }
 
@@ -277,14 +274,16 @@
         }
     }
 
-    function filterCategory(cat, el) {
-        selectedCategory = cat;
+    function filterDong(dong, el) {
+        selectedDong = dong;
         document.querySelectorAll('.cat-btn').forEach(btn => btn.classList.remove('active'));
         if (el) el.classList.add('active');
+        
+        document.getElementById('current-area-name').innerText = (dong === 'ALL') ? "전체 광명시 지층" : `📍 ${dong} 지층`;
         renderStrataTimeline();
     }
 
-    function loadRoadviewAndArea(lat, lng, areaName) {
+    function loadRoadviewAndPos(lat, lng) {
         currentLatLng = new kakao.maps.LatLng(lat, lng);
         map.panTo(currentLatLng);
 
@@ -292,35 +291,49 @@
         currentMarker = new kakao.maps.Marker({ position: currentLatLng, map: map });
 
         roadviewClient.getNearestPanoId(currentLatLng, 50, function(panoId) {
-            if (panoId) {
-                roadview.setPanoId(panoId, currentLatLng);
-            }
+            if (panoId) roadview.setPanoId(panoId, currentLatLng);
         });
-
-        selectedArea = areaName;
-        document.getElementById('current-area-name').innerText = areaName ? `📍 ${areaName}` : "전체 구역 지층 보기";
-        renderStrataTimeline();
     }
 
     function updateMapMarkers() {
-        const areaMap = new Map();
         userStrataStore.forEach(item => {
-            if (!areaMap.has(item.areaName)) {
-                areaMap.set(item.areaName, { lat: item.lat, lng: item.lng, areaName: item.areaName });
-            }
-        });
-
-        areaMap.forEach(area => {
             const marker = new kakao.maps.Marker({
-                position: new kakao.maps.LatLng(area.lat, area.lng),
+                position: new kakao.maps.LatLng(item.lat, item.lng),
                 map: map,
-                title: area.areaName
+                title: `${item.dong} (${item.year})`
             });
 
             kakao.maps.event.addListener(marker, 'click', function() {
-                loadRoadviewAndArea(area.lat, area.lng, area.areaName);
+                loadRoadviewAndPos(item.lat, item.lng);
+                filterDong(item.dong, null);
                 switchView('rv');
             });
+        });
+    }
+
+    // EXIF GPS 도/분/초 -> 십진수 변환 함수
+    function convertDMSToDD(dms, ref) {
+        if (!dms) return null;
+        let dd = dms[0] + (dms[1] / 60) + (dms[2] / 3600);
+        if (ref === "S" || ref === "W") dd = dd * -1;
+        return dd;
+    }
+
+    // 좌표 -> 광명시 행정동(동) 이름 추출
+    function getDongFromCoords(lat, lng, callback) {
+        geocoder.coord2RegionCode(lng, lat, function(result, status) {
+            if (status === kakao.maps.services.Status.OK) {
+                for (let i = 0; i < result.length; i++) {
+                    if (result[i].region_type === 'H') { // 행정동
+                        let dongName = result[i].region_3depth_name; // 예: 철산3동
+                        // 숫자 정제 (예: 철산3동 -> 철산동)
+                        let cleanDong = dongName.replace(/[0-9]/g, '');
+                        callback(cleanDong, dongName);
+                        return;
+                    }
+                }
+            }
+            callback("광명동", "광명동"); // 기본값 fallback
         });
     }
 
@@ -328,53 +341,68 @@
         const file = event.target.files[0];
         if (!file) return;
 
-        // 1. 카테고리 선택
-        const categoryInput = prompt("사진의 분류 종류를 입력하세요:\n(아파트 / 동 / 학교 / 장소 중 입력)", "아파트") || "장소";
-        
-        // 2. 구역명 입력
-        const defaultArea = selectedArea || "철산주공 13단지 1324동 부근";
-        const areaName = prompt(`구역/이름을 입력하세요:\n(예: 철산주공 13단지, 철산3동, 광명고등학교 등)`, defaultArea);
-        if (!areaName) return;
-
-        const year = prompt("사진 연도 (예: 2012년, 1995년):") || "과거 기록";
-        const desc = prompt("사진과 장소에 관한 메모/추억:") || "시민이 아카이브한 시간의 지층 사진입니다.";
-
         const reader = new FileReader();
         reader.onload = function(e) {
             const imgDataUrl = e.target.result;
 
             EXIF.getData(file, function() {
+                // 1. EXIF 촬영 날짜 추출
                 let photoDateStr = EXIF.getTag(this, "DateTimeOriginal") || EXIF.getTag(this, "DateTime");
                 let formattedDate = "";
+                let extractedYear = "";
 
                 if (photoDateStr) {
                     const parts = photoDateStr.split(" ")[0].split(":");
-                    if (parts.length === 3) formattedDate = `${parts[0]}-${parts[1]}-${parts[2]}`;
+                    if (parts.length === 3) {
+                        extractedYear = `${parts[0]}년`;
+                        formattedDate = `${parts[0]}-${parts[1]}-${parts[2]}`;
+                    }
                 }
 
                 if (!formattedDate) {
                     const today = new Date();
                     formattedDate = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`;
+                    extractedYear = `${today.getFullYear()}년`;
                 }
 
-                const center = currentLatLng || map.getCenter();
+                // 2. EXIF GPS 정보 추출
+                const latDMS = EXIF.getTag(this, "GPSLatitude");
+                const latRef = EXIF.getTag(this, "GPSLatitudeRef");
+                const lngDMS = EXIF.getTag(this, "GPSLongitude");
+                const lngRef = EXIF.getTag(this, "GPSLongitudeRef");
 
-                const newSeed = {
-                    id: Date.now(),
-                    category: categoryInput.trim(),
-                    areaName: areaName,
-                    year: year,
-                    photoDate: formattedDate,
-                    desc: desc,
-                    img: imgDataUrl,
-                    lat: center.getLat(),
-                    lng: center.getLng()
-                };
+                let lat = currentLatLng ? currentLatLng.getLat() : GM_CENTER.lat;
+                let lng = currentLatLng ? currentLatLng.getLng() : GM_CENTER.lng;
 
-                userStrataStore.unshift(newSeed);
-                saveUserSeeds();
-                updateMapMarkers();
-                loadRoadviewAndArea(center.getLat(), center.getLng(), areaName);
+                if (latDMS && lngDMS) {
+                    lat = convertDMSToDD(latDMS, latRef);
+                    lng = convertDMSToDD(lngDMS, lngRef);
+                }
+
+                // 3. 카카오 지오코더로 행정동 자동 추출
+                getDongFromCoords(lat, lng, function(cleanDong, fullDongName) {
+                    const userYear = prompt(`사진 촬영 연도를 확인해 주세요:`, extractedYear) || extractedYear;
+                    const userDong = prompt(`사진이 위치한 광명시 '동' 구역입니다:`, cleanDong) || cleanDong;
+                    const desc = prompt("사진과 장소에 관한 기억/추억 메모를 남겨주세요:") || `${fullDongName} 인근에서 기록된 시공간 지층입니다.`;
+
+                    const newSeed = {
+                        id: Date.now(),
+                        dong: userDong,
+                        year: userYear,
+                        photoDate: formattedDate,
+                        desc: desc,
+                        img: imgDataUrl,
+                        lat: lat,
+                        lng: lng
+                    };
+
+                    userStrataStore.unshift(newSeed);
+                    saveUserSeeds();
+                    updateMapMarkers();
+                    loadRoadviewAndPos(lat, lng);
+                    filterDong(userDong, null);
+                    alert(`사진이 [광명시 ${userDong}] 지층 아카이브에 성공적으로 편입되었습니다!`);
+                });
             });
         };
         reader.readAsDataURL(file);
@@ -386,18 +414,12 @@
 
         let itemsToDisplay = userStrataStore;
 
-        // 카테고리 필터링
-        if (selectedCategory !== 'ALL') {
-            itemsToDisplay = itemsToDisplay.filter(item => item.category === selectedCategory);
-        }
-
-        // 구역 선택 필터링
-        if (selectedArea) {
-            itemsToDisplay = itemsToDisplay.filter(item => item.areaName === selectedArea);
+        if (selectedDong !== 'ALL') {
+            itemsToDisplay = itemsToDisplay.filter(item => item.dong.includes(selectedDong));
         }
 
         if (itemsToDisplay.length === 0) {
-            list.innerHTML = '<div class="empty-state">해당 분류/구역에 등록된 과거 사진이 아직 없습니다.<br>첫 번째 사진을 올려 지층을 쌓아보세요!</div>';
+            list.innerHTML = '<div class="empty-state">해당 동 구역에 쌓인 과거 사진 지층이 없습니다.<br>첫 번째 사진을 올려 동의 옛 모습을 남겨보세요!</div>';
             return;
         }
 
@@ -405,16 +427,11 @@
             const card = document.createElement('div');
             card.className = "strata-card";
 
-            const catClass = `type-${item.category || '장소'}`;
-
             card.innerHTML = `
                 <div class="strata-node"></div>
                 <div class="strata-header">
                     <span class="strata-year"><i class="fa-solid fa-clock"></i> ${item.year}</span>
-                    <div>
-                        <span class="type-tag ${catClass}">${item.category || '장소'}</span>
-                        <span class="strata-area-tag" onclick="loadRoadviewAndArea(${item.lat}, ${item.lng}, '${item.areaName}')">📍 ${item.areaName}</span>
-                    </div>
+                    <span class="dong-tag" onclick="filterDong('${item.dong}', null)">📍 ${item.dong}</span>
                 </div>
                 <div class="strata-date">📸 촬영일: ${item.photoDate}</div>
                 <div class="strata-img-wrap">
@@ -439,7 +456,7 @@
         if (typeof kakao !== 'undefined' && kakao.maps) {
             initMap();
         } else {
-            document.getElementById('map').innerHTML = '<div style="padding:20px; color:#ef4444; font-size:0.85rem;">카카오 도메인 설정 또는 API 키를 확인해 주세요.</div>';
+            document.getElementById('map').innerHTML = '<div style="padding:20px; color:#ef4444; font-size:0.85rem;">카카오 API 키 또는 도메인 설정을 확인해 주세요.</div>';
         }
     };
 </script>
