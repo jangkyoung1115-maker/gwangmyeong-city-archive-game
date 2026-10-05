@@ -48,14 +48,14 @@
 
         /* 중앙 위치 선택 핀 (초기 상태 무조건 숨김) */
         #center-pin {
-            display: none !important; position: absolute; top: 50%; left: 50%; transform: translate(-50%, -100%);
+            display: none; position: absolute; top: 50%; left: 50%; transform: translate(-50%, -100%);
             z-index: 30; pointer-events: none; text-align: center;
         }
         #center-pin i { font-size: 2.5rem; color: #f59e0b; text-shadow: 0 2px 8px rgba(0,0,0,0.8); }
         #center-pin .pin-dot { width: 8px; height: 8px; background: #ef4444; border-radius: 50%; margin: -4px auto 0 auto; border: 2px solid #fff; }
 
         #picker-controls {
-            display: none !important; position: absolute; top: 12px; left: 12px; z-index: 30;
+            display: none; position: absolute; top: 12px; left: 12px; z-index: 30;
             align-items: center;
         }
         .confirm-loc-btn {
@@ -229,7 +229,7 @@
 
 <div id="main-container">
     <div id="view-section">
-        <!-- 중앙 위치 선택 핀 (초기 숨김) -->
+        <!-- 중앙 위치 선택 핀 (평소에는 완전히 숨김) -->
         <div id="center-pin">
             <i class="fa-solid fa-location-dot"></i>
             <div class="pin-dot"></div>
@@ -315,7 +315,7 @@
     firebase.initializeApp(firebaseConfig);
     const db = firebase.firestore();
 
-    let map, geocoder, roadview, roadviewClient, currentMarker = null;
+    let map, geocoder, roadview, roadviewClient;
     let markersOnMap = [];
     let activeInfoWindow = null;
     let selectedDong = 'ALL';
@@ -357,12 +357,11 @@
         roadview = new kakao.maps.Roadview(rvContainer);
         roadviewClient = new kakao.maps.RoadviewClient();
 
-        kakao.maps.event.addListener(map, 'dragend', function() {
-            const center = map.getCenter();
-            loadRoadviewAndPos(center.getLat(), center.getLng());
+        currentLatLng = new kakao.maps.LatLng(defaultPos.lat, defaultPos.lng);
+        roadviewClient.getNearestPanoId(currentLatLng, 50, function(panoId) {
+            if (panoId) roadview.setPanoId(panoId, currentLatLng);
         });
 
-        loadRoadviewAndPos(defaultPos.lat, defaultPos.lng);
         initFirebaseRealtimeSync();
         initModalZoomEvents();
     }
@@ -416,19 +415,12 @@
         map.panTo(moveLatLng);
         map.setLevel(targetPos.zoom);
 
-        loadRoadviewAndPos(targetPos.lat, targetPos.lng);
-        renderStrataTimeline();
-    }
-
-    function loadRoadviewAndPos(lat, lng) {
-        currentLatLng = new kakao.maps.LatLng(lat, lng);
-
-        if (currentMarker) currentMarker.setMap(null);
-        currentMarker = new kakao.maps.Marker({ position: currentLatLng, map: map });
-
+        currentLatLng = moveLatLng;
         roadviewClient.getNearestPanoId(currentLatLng, 50, function(panoId) {
             if (panoId) roadview.setPanoId(panoId, currentLatLng);
         });
+
+        renderStrataTimeline();
     }
 
     function updateMapMarkers() {
@@ -461,7 +453,11 @@
                 if (activeInfoWindow) activeInfoWindow.close();
                 infowindow.open(map, marker);
                 activeInfoWindow = infowindow;
-                loadRoadviewAndPos(item.lat, item.lng);
+                
+                currentLatLng = markerPos;
+                roadviewClient.getNearestPanoId(currentLatLng, 50, function(panoId) {
+                    if (panoId) roadview.setPanoId(panoId, currentLatLng);
+                });
             });
 
             markersOnMap.push(marker);
@@ -565,10 +561,10 @@
                     completeUploadWithCoords(lat, lng, pendingUploadData);
                     pendingUploadData = null;
                 } else {
-                    // GPS가 없을 때만 지도 중앙 조준 핀 명시적 노출
+                    // GPS가 없을 때만 지도 중앙 조준 핀 노출
                     switchView('map');
-                    document.getElementById('center-pin').style.cssText = "display: block !important; position: absolute; top: 50%; left: 50%; transform: translate(-50%, -100%); z-index: 30; pointer-events: none; text-align: center;";
-                    document.getElementById('picker-controls').style.cssText = "display: flex !important; position: absolute; top: 12px; left: 12px; z-index: 30; align-items: center;";
+                    document.getElementById('center-pin').style.display = 'block';
+                    document.getElementById('picker-controls').style.display = 'flex';
                     alert("⚠️ 사진에 GPS 위치 정보가 없습니다.\n지도를 이동하여 중앙 주황색 핀을 촬영 장소에 맞춘 뒤,\n좌측 상단의 [이 위치 선택 완료] 버튼을 눌러주세요.");
                 }
             });
@@ -578,8 +574,8 @@
     }
 
     function confirmSelectedLocation() {
-        document.getElementById('center-pin').style.cssText = "display: none !important;";
-        document.getElementById('picker-controls').style.cssText = "display: none !important;";
+        document.getElementById('center-pin').style.display = 'none';
+        document.getElementById('picker-controls').style.display = 'none';
 
         const centerPos = map.getCenter();
         if (pendingUploadData) {
@@ -624,7 +620,10 @@
                 });
 
                 hideLoading();
-                loadRoadviewAndPos(lat, lng);
+                currentLatLng = new kakao.maps.LatLng(lat, lng);
+                roadviewClient.getNearestPanoId(currentLatLng, 50, function(panoId) {
+                    if (panoId) roadview.setPanoId(panoId, currentLatLng);
+                });
                 filterDong(promptDong, null);
                 alert(`사진이 [광명시 ${promptDong}] 시간의 지층에 저장되었습니다!`);
 
