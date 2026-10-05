@@ -42,7 +42,16 @@
         }
         .toggle-btn.active { background: #2563eb; color: #fff; }
 
-        /* 지도 인포윈도우(커서 클릭 팝업) 스타일 */
+        /* 위치 선택 모드 안내 배너 */
+        #picker-banner {
+            display: none; position: absolute; top: 12px; left: 12px; z-index: 25;
+            background: #f59e0b; color: #000; font-weight: 800; font-size: 0.8rem;
+            padding: 8px 14px; border-radius: 20px; box-shadow: 0 4px 12px rgba(0,0,0,0.4);
+            animation: pulse 1.5s infinite;
+        }
+        @keyframes pulse { 0% { opacity: 0.8; } 50% { opacity: 1; } 100% { opacity: 0.8; } }
+
+        /* 지도 인포윈도우 스타일 */
         .info-card {
             background: #1c212b; color: #fff; padding: 10px; border-radius: 8px;
             box-shadow: 0 4px 12px rgba(0,0,0,0.5); width: 180px; text-align: center; font-size: 0.78rem;
@@ -137,12 +146,46 @@
 
         .empty-state { text-align: center; padding: 30px 10px; color: #6b7280; font-size: 0.85rem; }
 
+        /* 확대/축소 지원 모달 스타일 */
         #img-modal {
             display: none; position: fixed; top: 0; left: 0; width: 100vw; height: 100vh;
-            background: rgba(0,0,0,0.85); z-index: 1000; align-items: center; justify-content: center; padding: 20px;
+            background: rgba(0,0,0,0.92); z-index: 1000; overflow: hidden; touch-action: none;
+            user-select: none;
         }
-        #modal-img { max-width: 95%; max-height: 85vh; border-radius: 8px; border: 1px solid #3b82f6; }
-        #modal-close { position: absolute; top: 20px; right: 25px; color: #fff; font-size: 2rem; cursor: pointer; }
+        .modal-controls {
+            position: absolute; top: 16px; right: 20px; z-index: 1010;
+            display: flex; gap: 10px; align-items: center;
+        }
+        .zoom-btn {
+            background: rgba(30, 41, 59, 0.8); border: 1px solid #475569; color: #fff;
+            width: 36px; height: 36px; border-radius: 50%; font-size: 0.9rem;
+            display: flex; align-items: center; justify-content: center; cursor: pointer;
+            transition: background 0.2s;
+        }
+        .zoom-btn:hover { background: #2563eb; border-color: #60a5fa; }
+        #modal-close {
+            background: rgba(239, 68, 68, 0.8); border: none; color: #fff;
+            width: 36px; height: 36px; border-radius: 50%; font-size: 1.1rem;
+            display: flex; align-items: center; justify-content: center; cursor: pointer;
+        }
+
+        .modal-viewport {
+            width: 100%; height: 100%; display: flex; align-items: center; justify-content: center;
+            overflow: hidden; cursor: grab;
+        }
+        .modal-viewport:active { cursor: grabbing; }
+
+        #modal-img {
+            max-width: 90vw; max-height: 85vh; border-radius: 8px; border: 1px solid #3b82f6;
+            transform-origin: center center; transition: transform 0.05s ease-out;
+            will-change: transform;
+        }
+
+        .zoom-hint {
+            position: absolute; bottom: 16px; left: 50%; transform: translateX(-50%);
+            background: rgba(0, 0, 0, 0.7); color: #9ca3af; padding: 6px 14px;
+            border-radius: 20px; font-size: 0.75rem; pointer-events: none; z-index: 1010;
+        }
 
         @media (min-width: 768px) {
             #main-container { flex-direction: row; }
@@ -162,6 +205,7 @@
 
 <div id="main-container">
     <div id="view-section">
+        <div id="picker-banner"><i class="fa-solid fa-location-crosshairs"></i> 사진 위치로 설정할 지도 지점을 클릭하세요</div>
         <div class="view-toggle">
             <button class="toggle-btn active" id="btn-map" onclick="switchView('map')">🗺 지도</button>
             <button class="toggle-btn" id="btn-rv" onclick="switchView('rv')">📷 현재 로드뷰</button>
@@ -173,10 +217,9 @@
     <div id="strata-panel">
         <div class="panel-header">
             <h2 id="loc-title"><i class="fa-solid fa-clock-rotate-left" style="color:#f59e0b;"></i> 광명 행정동별 시간 지층</h2>
-            <p id="loc-desc">사진 EXIF 정보(GPS/날짜)를 통해 광명시 동별 구역에 자동으로 아카이브됩니다.</p>
+            <p id="loc-desc">사진 EXIF 정보(GPS/날짜)를 자동 추출하며, GPS가 없는 캡처 사진은 직접 지도를 클릭해 지정할 수 있습니다.</p>
         </div>
 
-        <!-- 광명시 주요 행정동 필터 -->
         <div class="category-filter" id="dong-filter-bar">
             <button class="cat-btn active" onclick="filterDong('ALL', this)">전체 동 보기</button>
             <button class="cat-btn" onclick="filterDong('철산동', this)">철산동</button>
@@ -190,11 +233,11 @@
 
         <div id="selected-area-display" class="area-badge">
             <span><i class="fa-solid fa-location-dot"></i> <span id="current-area-name">전체 광명시 지층</span></span>
-            <span style="font-size: 0.72rem; color:#9ca3af; font-weight: normal;">⏳ 최신순 정렬 중</span>
+            <span style="font-size: 0.72rem; color:#9ca3af; font-weight: normal;">⏳ 최신순 (상단:최신 / 하단:과거)</span>
         </div>
 
         <button class="upload-btn" onclick="document.getElementById('file-input').click()">
-            <i class="fa-solid fa-camera"></i> 내 과거 사진 올리기 (자동 구역 인식)
+            <i class="fa-solid fa-camera"></i> 과거 사진 올리기 (캡처/일반 사진 지원)
         </button>
         <input type="file" id="file-input" accept="image/*" style="display:none;" onchange="handlePhotoSeedUpload(event)">
 
@@ -202,9 +245,18 @@
     </div>
 </div>
 
-<div id="img-modal" onclick="closeModal()">
-    <span id="modal-close">&times;</span>
-    <img id="modal-img" src="">
+<!-- 확대/축소 모달 -->
+<div id="img-modal">
+    <div class="modal-controls">
+        <button class="zoom-btn" onclick="zoomIn()" title="확대"><i class="fa-solid fa-magnifying-glass-plus"></i></button>
+        <button class="zoom-btn" onclick="zoomOut()" title="축소"><i class="fa-solid fa-magnifying-glass-minus"></i></button>
+        <button class="zoom-btn" onclick="resetZoom()" title="원래대로"><i class="fa-solid fa-rotate-right"></i></button>
+        <button id="modal-close" onclick="closeModal()" title="닫기">&times;</button>
+    </div>
+    <div class="modal-viewport" id="modal-viewport">
+        <img id="modal-img" src="" alt="지층 확대 사진">
+    </div>
+    <div class="zoom-hint">💡 휠/두 손가락으로 확대, 드래그로 이동 가능</div>
 </div>
 
 <!-- 카카오맵 SDK -->
@@ -217,6 +269,10 @@
     let selectedDong = 'ALL';
     let currentLatLng = null;
 
+    // 위치 직접 지정 모드 플래그
+    let isLocationPickerActive = false;
+    let pendingUploadData = null;
+
     const DONG_COORDS = {
         'ALL': { lat: 37.4786, lng: 126.8645, zoom: 5 },
         '철산동': { lat: 37.4815, lng: 126.8675, zoom: 4 },
@@ -228,7 +284,7 @@
         '옥길동': { lat: 37.4690, lng: 126.8380, zoom: 4 }
     };
 
-    const STORAGE_KEY = 'GM_STRATA_DONG_SEEDS_V8';
+    const STORAGE_KEY = 'GM_STRATA_DONG_SEEDS_V9';
 
     const initialSampleData = [
         {
@@ -286,15 +342,23 @@
         roadview = new kakao.maps.Roadview(rvContainer);
         roadviewClient = new kakao.maps.RoadviewClient();
 
+        // 지도 클릭 이벤트 (위치 지정 모드 지원)
         kakao.maps.event.addListener(map, 'click', function(mouseEvent) {
-            if (activeInfoWindow) activeInfoWindow.close();
             const latLng = mouseEvent.getLatLng();
-            loadRoadviewAndPos(latLng.getLat(), latLng.getLng());
+
+            if (isLocationPickerActive && pendingUploadData) {
+                // GPS가 없는 사진의 위치 지정 완료
+                finishLocationPicking(latLng.getLat(), latLng.getLng());
+            } else {
+                if (activeInfoWindow) activeInfoWindow.close();
+                loadRoadviewAndPos(latLng.getLat(), latLng.getLng());
+            }
         });
 
         loadRoadviewAndPos(defaultPos.lat, defaultPos.lng);
         updateMapMarkers();
         renderStrataTimeline();
+        initModalZoomEvents();
     }
 
     function switchView(mode) {
@@ -313,7 +377,6 @@
         }
     }
 
-    // 행정구역 클릭 시 위치 이동 및 최신순 정렬 실행
     function filterDong(dong, el) {
         selectedDong = dong;
 
@@ -348,7 +411,6 @@
         });
     }
 
-    // 지도 상의 위치 커서 클릭 시 사진 인포윈도우 팝업
     function updateMapMarkers() {
         markersOnMap.forEach(m => m.setMap(null));
         markersOnMap = [];
@@ -365,7 +427,7 @@
                 <div class="info-card">
                     <img src="${item.img}" onclick="openModal('${item.img}')" style="cursor:pointer;" title="큰 사진으로 보기">
                     <div class="info-title">${item.dong} (${item.year})</div>
-                    <div class="info-date">촬영: ${item.photoDate}</div>
+                    <div class="info-date">촬영/표기: ${item.photoDate}</div>
                     <button class="info-btn" onclick="filterDong('${item.dong}', null)">해당 지층 목록 보기</button>
                 </div>
             `;
@@ -394,7 +456,7 @@
                 const canvas = document.createElement('canvas');
                 let width = img.width;
                 let height = img.height;
-                const MAX_WIDTH = 800;
+                const MAX_WIDTH = 1200;
 
                 if (width > MAX_WIDTH) {
                     height = Math.round((height * MAX_WIDTH) / width);
@@ -406,7 +468,7 @@
                 const ctx = canvas.getContext("2d");
                 ctx.drawImage(img, 0, 0, width, height);
 
-                const compressedDataUrl = canvas.toDataURL("image/jpeg", 0.7);
+                const compressedDataUrl = canvas.toDataURL("image/jpeg", 0.85);
                 callback(compressedDataUrl);
             };
             img.src = e.target.result;
@@ -437,14 +499,15 @@
         });
     }
 
+    // 사진 업로드 메인 로직 (EXIF 검사 + 위치 지정)
     function handlePhotoSeedUpload(event) {
         const file = event.target.files[0];
         if (!file) return;
 
         EXIF.getData(file, function() {
             let photoDateStr = EXIF.getTag(this, "DateTimeOriginal") || EXIF.getTag(this, "DateTime");
-            let formattedDate = "";
             let extractedYear = "";
+            let formattedDate = "";
 
             if (photoDateStr) {
                 const parts = photoDateStr.split(" ")[0].split(":");
@@ -454,49 +517,93 @@
                 }
             }
 
-            if (!formattedDate) {
-                const today = new Date();
-                formattedDate = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`;
-                extractedYear = `${today.getFullYear()}년`;
-            }
-
             const latDMS = EXIF.getTag(this, "GPSLatitude");
             const latRef = EXIF.getTag(this, "GPSLatitudeRef");
             const lngDMS = EXIF.getTag(this, "GPSLongitude");
             const lngRef = EXIF.getTag(this, "GPSLongitudeRef");
 
-            let lat = currentLatLng ? currentLatLng.getLat() : DONG_COORDS['ALL'].lat;
-            let lng = currentLatLng ? currentLatLng.getLng() : DONG_COORDS['ALL'].lng;
+            let hasGPS = false;
+            let lat = null;
+            let lng = null;
 
             if (latDMS && lngDMS) {
                 lat = convertDMSToDD(latDMS, latRef);
                 lng = convertDMSToDD(lngDMS, lngRef);
+                hasGPS = true;
             }
 
             compressImage(file, function(compressedImgUrl) {
-                getDongFromCoords(lat, lng, function(cleanDong, fullDongName) {
-                    const userYear = prompt(`사진 촬영 연도를 입력해주세요:`, extractedYear) || extractedYear;
-                    const userDong = prompt(`등록될 광명시 '동' 이름입니다:`, cleanDong) || cleanDong;
-                    const desc = prompt("사진 및 장소에 대한 기억과 이야기를 남겨주세요:") || `${fullDongName} 인근의 시공간 기록입니다.`;
+                pendingUploadData = {
+                    imgUrl: compressedImgUrl,
+                    extractedYear: extractedYear,
+                    formattedDate: formattedDate
+                };
 
-                    const newSeed = {
-                        id: Date.now(),
-                        dong: userDong,
-                        year: userYear,
-                        photoDate: formattedDate,
-                        desc: desc,
-                        img: compressedImgUrl,
-                        lat: lat,
-                        lng: lng
-                    };
-
-                    userStrataStore.push(newSeed);
-                    saveUserSeeds();
-                    updateMapMarkers();
-                    filterDong(userDong, null);
-                    alert(`사진이 [광명시 ${userDong}] 지층에 성공적으로 저장·축적되었습니다!`);
-                });
+                if (hasGPS) {
+                    // GPS가 명확한 경우 바로 처리
+                    completeUploadWithCoords(lat, lng, pendingUploadData);
+                } else {
+                    // 캡처본/옛날 사진 등 GPS가 없는 경우 지도에서 선택 유도
+                    const chooseMode = confirm("사진에 위치(GPS) 정보가 없습니다.\n지도를 직접 클릭해서 위치를 지정하시겠습니까?\n('취소' 클릭 시 현재 화면 중앙 위치로 등록됩니다)");
+                    if (chooseMode) {
+                        switchView('map');
+                        isLocationPickerActive = true;
+                        document.getElementById('picker-banner').style.display = 'block';
+                    } else {
+                        let defaultLat = currentLatLng ? currentLatLng.getLat() : DONG_COORDS['ALL'].lat;
+                        let defaultLng = currentLatLng ? currentLatLng.getLng() : DONG_COORDS['ALL'].lng;
+                        completeUploadWithCoords(defaultLat, defaultLng, pendingUploadData);
+                    }
+                }
             });
+        });
+
+        // 파일 인풋 초기화
+        event.target.value = "";
+    }
+
+    // 지도 클릭 시 실행되는 위치 지정 완료 함수
+    function finishLocationPicking(lat, lng) {
+        isLocationPickerActive = false;
+        document.getElementById('picker-banner').style.display = 'none';
+
+        if (pendingUploadData) {
+            completeUploadWithCoords(lat, lng, pendingUploadData);
+            pendingUploadData = null;
+        }
+    }
+
+    // 입력 및 데이터 저장 최종 처리
+    function completeUploadWithCoords(lat, lng, uploadData) {
+        getDongFromCoords(lat, lng, function(cleanDong, fullDongName) {
+            const promptYear = prompt(`사진의 실제 촬영 연도를 입력해주세요 (예: 1988년):`, uploadData.extractedYear || "1990년") || "1990년";
+            
+            // 사용자가 입력한 연도를 파싱하여 대표 날짜 기본값 생성 (정렬용)
+            const cleanYearNum = promptYear.replace(/[^0-9]/g, '') || "1990";
+            const defaultDate = uploadData.formattedDate || `${cleanYearNum}-01-01`;
+
+            const promptDate = prompt(`상세 날짜/표기 날짜를 입력해주세요 (YYYY-MM-DD):`, defaultDate) || defaultDate;
+            const promptDong = prompt(`등록될 광명시 '동' 이름입니다:`, cleanDong) || cleanDong;
+            const desc = prompt("사진 및 장소에 대한 추억과 이야기를 남겨주세요:") || `${fullDongName} 인근의 시공간 기록입니다.`;
+
+            const newSeed = {
+                id: Date.now(),
+                dong: promptDong,
+                year: promptYear,
+                photoDate: promptDate,
+                desc: desc,
+                img: uploadData.imgUrl,
+                lat: lat,
+                lng: lng
+            };
+
+            userStrataStore.push(newSeed);
+            saveUserSeeds();
+            updateMapMarkers();
+            loadRoadviewAndPos(lat, lng);
+            filterDong(promptDong, null);
+
+            alert(`사진이 [광명시 ${promptDong}] 지층에 올바른 순서로 축적되었습니다!`);
         });
     }
 
@@ -504,9 +611,9 @@
         const item = userStrataStore.find(seed => seed.id === id);
         if (!item) return;
 
-        const newYear = prompt("연도를 수정합니다:", item.year) || item.year;
+        const newYear = prompt("연도를 수정합니다 (예: 1985년):", item.year) || item.year;
         const newDong = prompt("동 구역을 수정합니다 (예: 철산동, 하안동):", item.dong) || item.dong;
-        const newDate = prompt("촬영 날짜를 수정합니다 (YYYY-MM-DD):", item.photoDate) || item.photoDate;
+        const newDate = prompt("촬영/표기 날짜를 수정합니다 (YYYY-MM-DD):", item.photoDate) || item.photoDate;
         const newDesc = prompt("설명 메모를 수정합니다:", item.desc) || item.desc;
 
         item.year = newYear;
@@ -528,7 +635,7 @@
         renderStrataTimeline();
     }
 
-    // 사진들을 날짜/연도 기준 최신순(최신 -> 과거)으로 정렬하여 표시
+    // 날짜/연도 정렬 (최신 사진이 상단, 오래된 사진일수록 하단)
     function renderStrataTimeline() {
         const list = document.getElementById('strata-list');
         list.innerHTML = '';
@@ -539,11 +646,11 @@
             itemsToDisplay = itemsToDisplay.filter(item => item.dong.includes(selectedDong));
         }
 
-        // 최신 날짜/연도 순(내림차순: 최신이 위, 오래된 것이 아래) 정렬
+        // 정렬 로직: photoDate 및 year 숫자를 조합해 정교하게 정렬 (최신 -> 과거)
         itemsToDisplay.sort((a, b) => {
-            const dateA = a.photoDate || a.year;
-            const dateB = b.photoDate || b.year;
-            return dateB.localeCompare(dateA);
+            const keyA = a.photoDate || a.year;
+            const keyB = b.photoDate || b.year;
+            return keyB.localeCompare(keyA);
         });
 
         if (itemsToDisplay.length === 0) {
@@ -561,9 +668,9 @@
                     <span class="strata-year"><i class="fa-solid fa-clock"></i> ${item.year}</span>
                     <span class="dong-tag" onclick="filterDong('${item.dong}', null)">📍 ${item.dong}</span>
                 </div>
-                <div class="strata-date">📸 촬영일: ${item.photoDate}</div>
+                <div class="strata-date">📸 촬영/표기: ${item.photoDate}</div>
                 <div class="strata-img-wrap">
-                    <img class="strata-img" src="${item.img}" onclick="openModal('${item.img}')" title="클릭하여 크게 보기">
+                    <img class="strata-img" src="${item.img}" onclick="openModal('${item.img}')" title="클릭하여 확대해 보기">
                 </div>
                 <div class="strata-desc">${item.desc}</div>
                 <div class="card-actions">
@@ -575,13 +682,115 @@
         });
     }
 
+    // ================= 모달 줌 및 드래그 관련 상태 및 로직 =================
+    let scale = 1;
+    let pointX = 0;
+    let pointY = 0;
+    let startX = 0;
+    let startY = 0;
+    let isDragging = false;
+    let initialPinchDistance = null;
+
+    function applyTransform() {
+        const modalImg = document.getElementById('modal-img');
+        modalImg.style.transform = `translate(${pointX}px, ${pointY}px) scale(${scale})`;
+    }
+
     function openModal(imgSrc) {
-        document.getElementById('modal-img').src = imgSrc;
-        document.getElementById('img-modal').style.display = 'flex';
+        const modalImg = document.getElementById('modal-img');
+        modalImg.src = imgSrc;
+        resetZoom();
+        document.getElementById('img-modal').style.display = 'block';
     }
 
     function closeModal() {
         document.getElementById('img-modal').style.display = 'none';
+    }
+
+    function zoomIn() {
+        scale = Math.min(scale * 1.3, 5);
+        applyTransform();
+    }
+
+    function zoomOut() {
+        scale = Math.max(scale / 1.3, 0.8);
+        if (scale <= 1) { pointX = 0; pointY = 0; }
+        applyTransform();
+    }
+
+    function resetZoom() {
+        scale = 1;
+        pointX = 0;
+        pointY = 0;
+        applyTransform();
+    }
+
+    function initModalZoomEvents() {
+        const viewport = document.getElementById('modal-viewport');
+
+        viewport.addEventListener('wheel', function(e) {
+            e.preventDefault();
+            const delta = -e.deltaY;
+            if (delta > 0) scale = Math.min(scale * 1.15, 5);
+            else scale = Math.max(scale / 1.15, 0.8);
+
+            if (scale <= 1) { pointX = 0; pointY = 0; }
+            applyTransform();
+        }, { passive: false });
+
+        viewport.addEventListener('mousedown', function(e) {
+            if (scale <= 1) return;
+            e.preventDefault();
+            isDragging = true;
+            startX = e.clientX - pointX;
+            startY = e.clientY - pointY;
+        });
+
+        window.addEventListener('mousemove', function(e) {
+            if (!isDragging) return;
+            e.preventDefault();
+            pointX = e.clientX - startX;
+            pointY = e.clientY - startY;
+            applyTransform();
+        });
+
+        window.addEventListener('mouseup', function() { isDragging = false; });
+
+        viewport.addEventListener('touchstart', function(e) {
+            if (e.touches.length === 1 && scale > 1) {
+                isDragging = true;
+                startX = e.touches[0].clientX - pointX;
+                startY = e.touches[0].clientY - pointY;
+            } else if (e.touches.length === 2) {
+                isDragging = false;
+                initialPinchDistance = Math.hypot(
+                    e.touches[0].clientX - e.touches[1].clientX,
+                    e.touches[0].clientY - e.touches[1].clientY
+                );
+            }
+        });
+
+        viewport.addEventListener('touchmove', function(e) {
+            if (e.touches.length === 1 && isDragging) {
+                pointX = e.touches[0].clientX - startX;
+                pointY = e.touches[0].clientY - startY;
+                applyTransform();
+            } else if (e.touches.length === 2 && initialPinchDistance) {
+                const currentDist = Math.hypot(
+                    e.touches[0].clientX - e.touches[1].clientX,
+                    e.touches[0].clientY - e.touches[1].clientY
+                );
+                const diff = currentDist / initialPinchDistance;
+                scale = Math.min(Math.max(scale * diff, 0.8), 5);
+                initialPinchDistance = currentDist;
+                applyTransform();
+            }
+        });
+
+        viewport.addEventListener('touchend', function(e) {
+            if (e.touches.length < 2) initialPinchDistance = null;
+            if (e.touches.length === 0) isDragging = false;
+        });
     }
 
     window.onload = function() {
