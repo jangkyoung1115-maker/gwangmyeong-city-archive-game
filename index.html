@@ -60,7 +60,6 @@
             width: 2px; background: #2d323e; z-index: 1;
         }
 
-        /* 지층 카드 스타일 및 클릭 피드백 */
         .strata-card {
             position: relative; z-index: 2; background: #1c212b; border: 1px solid #2d323e;
             border-radius: 10px; padding: 12px 12px 12px 34px; cursor: pointer;
@@ -123,7 +122,7 @@
     <div id="strata-panel">
         <div class="panel-header">
             <h2 id="loc-title"><i class="fa-solid fa-location-dot" style="color:#ef4444;"></i> 광명시 시공간 지층</h2>
-            <p id="loc-desc">지층 카드를 터치하면 해당 연도의 시공간 로드뷰로 이동합니다.</p>
+            <p id="loc-desc">지도를 클릭하면 해당 위치의 정밀 GPS 지층과 로드뷰 타임라인이 연결됩니다.</p>
         </div>
 
         <button class="upload-btn" onclick="document.getElementById('file-input').click()">
@@ -156,6 +155,9 @@
         roadview = new kakao.maps.Roadview(rvContainer);
         roadviewClient = new kakao.maps.RoadviewClient();
 
+        // 카카오 로드뷰 타임라인(과거 연도 선택 기능) 활성화
+        roadview.setTimeLine(true);
+
         kakao.maps.event.addListener(map, 'click', function(mouseEvent) {
             const latLng = mouseEvent.getLatLng();
             loadLocationStrata(latLng.getLat(), latLng.getLng());
@@ -176,6 +178,8 @@
         } else {
             mapEl.style.display = 'none'; rvEl.style.display = 'block';
             btnRv.classList.add('active'); btnMap.classList.remove('active');
+            // 로드뷰 전환 시 리사이즈 반영
+            roadview.relayout();
         }
     }
 
@@ -210,7 +214,9 @@
                     pwd: pwd,
                     img: imgDataUrl,
                     desc: desc,
-                    year: "유저 제보 지층"
+                    year: "유저 제보 지층",
+                    lat: coords.lat,
+                    lng: coords.lng
                 };
 
                 userStrataStore.unshift(newSeed);
@@ -227,7 +233,7 @@
         if (currentMarker) currentMarker.setMap(null);
         currentMarker = new kakao.maps.Marker({ position: currentLatLng, map: map });
 
-        // 로드뷰 연동
+        // 해당 좌표 주변 최단거리 로드뷰 검색 후 로딩
         roadviewClient.getNearestPanoId(currentLatLng, 50, function(panoId) {
             if (panoId) {
                 roadview.setPanoId(panoId, currentLatLng);
@@ -236,20 +242,11 @@
         });
     }
 
-    // 지층 카드 클릭 시 로드뷰/지도 연동 실행 함수
-    function selectStrataLayer(year, isUser = false) {
-        if (!currentLatLng) return;
-
-        switchView('rv'); // 로드뷰 화면으로 자동 전환
-
-        roadviewClient.getNearestPanoId(currentLatLng, 50, function(panoId) {
-            if (panoId) {
-                roadview.setPanoId(panoId, currentLatLng);
-                alert(`📍 ${year} 시공간 지층으로 연결되었습니다.`);
-            } else {
-                alert(`선택하신 위치는 로드뷰 데이터가 제한적인 구역입니다.`);
-            }
-        });
+    function selectStrataLayer(lat, lng) {
+        if (lat && lng) {
+            loadLocationStrata(lat, lng);
+        }
+        switchView('rv');
     }
 
     function renderStrataStack() {
@@ -262,14 +259,14 @@
             card.className = "strata-card user-seed";
             card.onclick = (e) => {
                 if (e.target.tagName !== 'BUTTON') {
-                    selectStrataLayer(item.year, true);
+                    selectStrataLayer(item.lat, item.lng);
                 }
             };
 
             card.innerHTML = `
                 <div class="strata-node"></div>
                 <div class="strata-header">
-                    <span class="strata-year"><i class="fa-solid fa-clock-rotate-left"></i> ${item.year}</span>
+                    <span class="strata-year"><i class="fa-solid fa-camera"></i> ${item.year}</span>
                     <div class="strata-tag-group">
                         <span class="strata-tag">시민 아카이브</span>
                         <div class="action-btns">
@@ -284,18 +281,15 @@
             list.appendChild(card);
         });
 
-        // 2. 연도별 과거 기초 지층
+        // 2. 카카오맵 내장 로드뷰 타임라인 안내 지층
         const baseLayers = [
-            { year: "2026년 (현재 지층)", tag: "카카오 로드뷰", desc: "현재 도시 풍경 및 건물 현황 데이터" },
-            { year: "2021년 지층", tag: "카카오 과거 데이터", desc: "주변 재개발 및 도로 정비 진행 시기", isPast: true },
-            { year: "2012년 지층", tag: "카카오 과거 데이터", desc: "옛 구도심 상가 및 골목 보존 시기", isPast: true },
-            { year: "2008년 기초 지층", tag: "카카오 최초 기록", desc: "초기 로드뷰 수집 파노라마 데이터", isPast: true }
+            { year: "카카오 로드뷰 타임머신", tag: "과거 년도 연동", desc: "상단 '📷 로드뷰' 모드로 전환 후 화면 내 시계 아이콘/타임라인을 조절하면 해당 위치의 과거 시점 사진을 보실 수 있습니다." }
         ];
 
         baseLayers.forEach(item => {
             const card = document.createElement('div');
-            card.className = `strata-card ${item.isPast ? 'past' : ''}`;
-            card.onclick = () => selectStrataLayer(item.year);
+            card.className = "strata-card past";
+            card.onclick = () => selectStrataLayer();
 
             card.innerHTML = `
                 <div class="strata-node"></div>
