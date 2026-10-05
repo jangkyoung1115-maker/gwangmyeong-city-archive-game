@@ -42,14 +42,24 @@
         }
         .toggle-btn.active { background: #2563eb; color: #fff; }
 
-        /* 위치 선택 모드 안내 배너 */
-        #picker-banner {
-            display: none; position: absolute; top: 12px; left: 12px; z-index: 25;
-            background: #f59e0b; color: #000; font-weight: 800; font-size: 0.8rem;
-            padding: 8px 14px; border-radius: 20px; box-shadow: 0 4px 12px rgba(0,0,0,0.4);
-            animation: pulse 1.5s infinite; pointer-events: none;
+        /* 중앙 위치 조준선 및 가이드 배너 */
+        #center-pin {
+            display: none; position: absolute; top: 50%; left: 50%; transform: translate(-50%, -100%);
+            z-index: 30; pointer-events: none; text-align: center;
         }
-        @keyframes pulse { 0% { opacity: 0.8; } 50% { opacity: 1; } 100% { opacity: 0.8; } }
+        #center-pin i { font-size: 2.5rem; color: #f59e0b; text-shadow: 0 2px 8px rgba(0,0,0,0.8); }
+        #center-pin .pin-dot { width: 8px; height: 8px; background: #ef4444; border-radius: 50%; margin: -4px auto 0 auto; border: 2px solid #fff; }
+
+        #picker-controls {
+            display: none; position: absolute; top: 12px; left: 12px; z-index: 30;
+            display: flex; gap: 8px; align-items: center;
+        }
+        .confirm-loc-btn {
+            background: #f59e0b; color: #000; border: none; padding: 8px 16px;
+            border-radius: 20px; font-weight: 800; font-size: 0.82rem; cursor: pointer;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.4); display: flex; align-items: center; gap: 6px;
+        }
+        .confirm-loc-btn:hover { background: #d97706; }
 
         /* 지도 인포윈도우 스타일 */
         .info-card {
@@ -146,7 +156,7 @@
 
         .empty-state { text-align: center; padding: 30px 10px; color: #6b7280; font-size: 0.85rem; }
 
-        /* 확대/축소 지원 모달 스타일 */
+        /* 확대/축소 모달 */
         #img-modal {
             display: none; position: fixed; top: 0; left: 0; width: 100vw; height: 100vh;
             background: rgba(0,0,0,0.92); z-index: 1000; overflow: hidden; touch-action: none;
@@ -205,7 +215,19 @@
 
 <div id="main-container">
     <div id="view-section">
-        <div id="picker-banner"><i class="fa-solid fa-location-crosshairs"></i> 지도에서 사진 위치를 클릭해주세요</div>
+        <!-- 중앙 조준선 타겟 핀 -->
+        <div id="center-pin">
+            <i class="fa-solid fa-location-dot"></i>
+            <div class="pin-dot"></div>
+        </div>
+
+        <!-- 위치 확정 상단 컨트롤 -->
+        <div id="picker-controls">
+            <button class="confirm-loc-btn" onclick="confirmSelectedLocation()">
+                <i class="fa-solid fa-check"></i> 이 위치 선택 완료
+            </button>
+        </div>
+
         <div class="view-toggle">
             <button class="toggle-btn active" id="btn-map" onclick="switchView('map')">🗺 지도</button>
             <button class="toggle-btn" id="btn-rv" onclick="switchView('rv')">📷 현재 로드뷰</button>
@@ -217,7 +239,7 @@
     <div id="strata-panel">
         <div class="panel-header">
             <h2 id="loc-title"><i class="fa-solid fa-clock-rotate-left" style="color:#f59e0b;"></i> 광명 행정동별 시간 지층</h2>
-            <p id="loc-desc">캡처/과거 사진은 지도 클릭으로 위치를 직접 지정할 수 있으며, 작성 시 설정한 비밀번호로 관리됩니다.</p>
+            <p id="loc-desc">사진 위치 지정 시 지도 중앙 조준점을 맞춰 선택할 수 있으며, 설정한 비밀번호로 삭제/수정 관리됩니다.</p>
         </div>
 
         <div class="category-filter" id="dong-filter-bar">
@@ -269,8 +291,7 @@
     let selectedDong = 'ALL';
     let currentLatLng = null;
 
-    // 위치 직접 지정 모드
-    let isLocationPickerActive = false;
+    // 업로드 대기 데이터
     let pendingUploadData = null;
 
     const DONG_COORDS = {
@@ -328,7 +349,7 @@
         try {
             localStorage.setItem(STORAGE_KEY, JSON.stringify(userStrataStore));
         } catch (e) {
-            alert("저장 공간이 부족합니다. 오래된 데이터를 일부 정리하세요.");
+            alert("저장 공간이 부족합니다. 용량을 차지하는 큰 사진을 정리해 주세요.");
         }
     }
 
@@ -345,16 +366,10 @@
         roadview = new kakao.maps.Roadview(rvContainer);
         roadviewClient = new kakao.maps.RoadviewClient();
 
-        // 지도 클릭 이벤트 핸들러
-        kakao.maps.event.addListener(map, 'click', function(mouseEvent) {
-            const latLng = mouseEvent.getLatLng();
-
-            if (isLocationPickerActive && pendingUploadData) {
-                finishLocationPicking(latLng.getLat(), latLng.getLng());
-            } else {
-                if (activeInfoWindow) activeInfoWindow.close();
-                loadRoadviewAndPos(latLng.getLat(), latLng.getLng());
-            }
+        // 지도 dragend 이벤트 시 중심점 기준 로드뷰 업데이트
+        kakao.maps.event.addListener(map, 'dragend', function() {
+            const center = map.getCenter();
+            loadRoadviewAndPos(center.getLat(), center.getLng());
         });
 
         loadRoadviewAndPos(defaultPos.lat, defaultPos.lng);
@@ -544,16 +559,10 @@
                 if (hasGPS) {
                     completeUploadWithCoords(lat, lng, pendingUploadData);
                 } else {
-                    const chooseMode = confirm("사진에 GPS 위치 정보가 없습니다.\n\n[확인] -> 지도에서 사진 위치를 클릭하여 선택\n[취소] -> 현재 화면 위치로 자동 등록");
-                    if (chooseMode) {
-                        switchView('map');
-                        isLocationPickerActive = true;
-                        document.getElementById('picker-banner').style.display = 'block';
-                    } else {
-                        let defaultLat = currentLatLng ? currentLatLng.getLat() : DONG_COORDS['ALL'].lat;
-                        let defaultLng = currentLatLng ? currentLatLng.getLng() : DONG_COORDS['ALL'].lng;
-                        completeUploadWithCoords(defaultLat, defaultLng, pendingUploadData);
-                    }
+                    switchView('map');
+                    document.getElementById('center-pin').style.display = 'block';
+                    document.getElementById('picker-controls').style.display = 'flex';
+                    alert("지도를 드래그하여 중앙 주황색 핀 위치를 사진 촬영 장소에 맞춘 후,\n상단의 [이 위치 선택 완료] 버튼을 눌러주세요.");
                 }
             });
         });
@@ -561,12 +570,13 @@
         event.target.value = "";
     }
 
-    function finishLocationPicking(lat, lng) {
-        isLocationPickerActive = false;
-        document.getElementById('picker-banner').style.display = 'none';
+    function confirmSelectedLocation() {
+        document.getElementById('center-pin').style.display = 'none';
+        document.getElementById('picker-controls').style.display = 'none';
 
+        const centerPos = map.getCenter();
         if (pendingUploadData) {
-            completeUploadWithCoords(lat, lng, pendingUploadData);
+            completeUploadWithCoords(centerPos.getLat(), centerPos.getLng(), pendingUploadData);
             pendingUploadData = null;
         }
     }
@@ -581,11 +591,11 @@
             const promptDong = prompt(`등록될 광명시 '동' 이름입니다:`, cleanDong) || cleanDong;
             const desc = prompt("사진 및 장소에 대한 추억과 이야기를 남겨주세요:") || `${fullDongName} 인근의 시공간 기록입니다.`;
             
-            // 비밀번호 설정 단계
+            // 비밀번호 설정
             let password = "";
             while (!password) {
                 password = prompt("사진 수정/삭제 시 필요한 비밀번호(4자리 이상)를 설정해 주세요:");
-                if (password === null) return; // 취소한 경우
+                if (password === null) return;
                 if (password.trim().length < 4) {
                     alert("비밀번호는 최소 4자리 이상이어야 합니다.");
                     password = "";
@@ -618,7 +628,6 @@
         const item = userStrataStore.find(seed => seed.id === id);
         if (!item) return;
 
-        // 비밀번호 확인
         const inputPw = prompt("이 사진을 수정하려면 설정한 비밀번호를 입력하세요:");
         if (inputPw === null) return;
 
@@ -647,7 +656,6 @@
         const item = userStrataStore.find(seed => seed.id === id);
         if (!item) return;
 
-        // 비밀번호 확인
         const inputPw = prompt("이 사진을 삭제하려면 설정한 비밀번호를 입력하세요:");
         if (inputPw === null) return;
 
