@@ -45,7 +45,6 @@
         #map, #roadview { width: 100%; height: 100%; position: absolute; top: 0; left: 0; }
         #roadview { z-index: 5; display: none; }
 
-        /* 지도 상단 작은 토글 스위치 버튼 스타일 */
         .view-toggle-group {
             position: absolute; top: 12px; left: 12px; z-index: 20;
             background: #1c212b; border: 1px solid #374151; border-radius: 6px;
@@ -262,11 +261,9 @@
 
 <div id="main-container">
     <div id="view-section">
-        <!-- 지도와 인라인 로드뷰 영역 -->
         <div id="map"></div>
         <div id="roadview"></div>
 
-        <!-- 지도 상단 작은 토글 스위치 -->
         <div class="view-toggle-group">
             <button id="btn-map-view" class="toggle-btn active" onclick="switchViewMode('map')">
                 <i class="fa-solid fa-map"></i> 지도
@@ -438,6 +435,7 @@
             year: '1992',
             dong: '하안동',
             author: '지층탐험가',
+            password: '1234',
             imgUrl: 'https://images.unsplash.com/photo-1500382017468-9049fed747ef?w=600',
             lat: 37.4618,
             lng: 126.8672,
@@ -452,6 +450,7 @@
             year: '2004',
             dong: '일직동',
             author: '역사기록관',
+            password: '1234',
             imgUrl: 'https://images.unsplash.com/photo-1486406146926-c627a92ad1ab?w=600',
             lat: 37.4208,
             lng: 126.8831,
@@ -484,7 +483,10 @@
         geocoder = new kakao.maps.services.Geocoder();
         currentLatLng = new kakao.maps.LatLng(defaultPos.lat, defaultPos.lng);
 
-        // 로드뷰 및 컨트롤러 초기화
+        kakao.maps.event.addListener(map, 'center_changed', function() {
+            currentLatLng = map.getCenter();
+        });
+
         roadview = new kakao.maps.Roadview(document.getElementById('roadview'));
         roadviewClient = new kakao.maps.RoadviewClient();
         const roadviewControl = new kakao.maps.RoadviewControl();
@@ -494,7 +496,6 @@
         initModalZoomEvents();
     }
 
-    // 지도 상단 토글 스위치 동작 함수
     function switchViewMode(mode) {
         const mapEl = document.getElementById('map');
         const roadEl = document.getElementById('roadview');
@@ -681,7 +682,6 @@
             return matchD && matchDec;
         });
 
-        // 최신 시간순이 위로 오도록 내림차순(yb - ya) 정렬
         filtered.sort((a, b) => {
             const ya = parseInt((a.year || "2026").replace(/[^0-9]/g, ''), 10) || 2026;
             const yb = parseInt((b.year || "2026").replace(/[^0-9]/g, ''), 10) || 2026;
@@ -812,20 +812,23 @@
 
                     showLoading("데이터베이스에 저장 중...");
 
-                    let targetLat = DONG_COORDS['철산동'].lat;
-                    let targetLng = DONG_COORDS['철산동'].lng;
-                    let determinedDong = '철산동';
-
+                    let targetLat, targetLng;
                     if (latObj && lonObj) {
                         targetLat = convertDMSToDD(latObj, latRef);
                         targetLng = convertDMSToDD(lonObj, lonRef);
+                    } else if (currentLatLng) {
+                        targetLat = currentLatLng.getLat();
+                        targetLng = currentLatLng.getLng();
+                    } else {
+                        targetLat = DONG_COORDS['철산동'].lat;
+                        targetLng = DONG_COORDS['철산동'].lng;
                     }
 
                     db.collection("strata_records").add({
                         title: titleInput || "추억의 사진",
                         desc: descInput || "",
                         year: finalYear,
-                        dong: determinedDong,
+                        dong: selectedDong !== 'ALL' ? selectedDong : '철산동',
                         author: authorInput || "익명",
                         password: passwordInput || "1234",
                         imgUrl: compressedDataUrl,
@@ -838,7 +841,7 @@
                         createdAt: firebase.firestore.FieldValue.serverTimestamp()
                     }).then(() => {
                         hideLoading();
-                        alert("성공적으로 등록되었습니다!");
+                        alert("성공적으로 등록되어 지도에 축적되었습니다!");
                         activeQuestTag = null;
                     }).catch(err => {
                         hideLoading();
