@@ -165,10 +165,12 @@
             padding: 2px 8px; border-radius: 10px; font-size: 0.7rem; font-weight: 700; cursor: pointer;
             display: flex; align-items: center; gap: 4px;
         }
+        .card-actions { display: flex; gap: 4px; }
         .act-btn {
             background: none; border: 1px solid #374151; color: #9ca3af; padding: 2px 6px;
             border-radius: 3px; font-size: 0.68rem; cursor: pointer;
         }
+        .act-btn:hover { background: #374151; color: #fff; }
         .act-btn.del:hover { background: #ef4444; color: #fff; border-color: #ef4444; }
 
         .empty-state { text-align: center; padding: 30px 10px; color: #6b7280; font-size: 0.78rem; }
@@ -615,7 +617,7 @@
             return matchD && matchDec;
         });
 
-        // 최신 시간순이 위로, 오래된 순서가 아래로 오도록 내림차순(yb - ya) 정렬
+        // 최신 시간순이 위로 오도록 내림차순(yb - ya) 정렬
         filtered.sort((a, b) => {
             const ya = parseInt((a.year || "2026").replace(/[^0-9]/g, ''), 10) || 2026;
             const yb = parseInt((b.year || "2026").replace(/[^0-9]/g, ''), 10) || 2026;
@@ -670,7 +672,10 @@
                     <button class="like-btn" onclick="toggleLike('${item.id}')">
                         <i class="fa-solid fa-heart"></i> <span id="like-count-${item.id}">${item.likes || 0}</span>
                     </button>
-                    <button class="act-btn del" onclick="deleteRecord('${item.id}')">삭제</button>
+                    <div class="card-actions">
+                        <button class="act-btn" onclick="editRecord('${item.id}', '${item.title || ''}', '${item.desc || ''}', '${item.year || ''}')">수정</button>
+                        <button class="act-btn del" onclick="deleteRecord('${item.id}')">삭제</button>
+                    </div>
                 </div>
             `;
             listEl.appendChild(card);
@@ -681,68 +686,89 @@
         const file = event.target.files[0];
         if (!file) return;
 
-        showLoading("사진 분석 중...");
+        showLoading("사진 압축 및 분석 중...");
 
-        EXIF.getData(file, function() {
-            const dateTime = EXIF.getTag(this, "DateTimeOriginal");
-            let extractedYear = "2026";
-            if (dateTime) {
-                const yearPart = dateTime.split(/[:\s]/)[0];
-                if (yearPart && yearPart.length === 4) extractedYear = yearPart;
-            }
+        const reader = new FileReader();
+        reader.onload = function(e) {
+            const img = new Image();
+            img.onload = function() {
+                const canvas = document.createElement('canvas');
+                const MAX_WIDTH = 800;
+                const MAX_HEIGHT = 800;
+                let width = img.width;
+                let height = img.height;
 
-            const latObj = EXIF.getTag(this, "GPSLatitude");
-            const lonObj = EXIF.getTag(this, "GPSLongitude");
-            const latRef = EXIF.getTag(this, "GPSLatitudeRef");
-            const lonRef = EXIF.getTag(this, "GPSLongitudeRef");
-
-            let reader = new FileReader();
-            reader.onload = function(e) {
-                const base64Img = e.target.result;
-                hideLoading();
-
-                const titleInput = prompt("사진 제목이나 장소명을 입력해주세요:", "광명 추억의 풍경");
-                if (titleInput === null) return;
-
-                const descInput = prompt("사진에 얽힌 설명이나 에피소드를 적어주세요:", "");
-                const authorInput = prompt("작가(닉네임)를 입력해주세요:", "광명토박이");
-
-                showLoading("등록 중...");
-
-                let targetLat = DONG_COORDS['철산동'].lat;
-                let targetLng = DONG_COORDS['철산동'].lng;
-                let determinedDong = '철산동';
-
-                if (latObj && lonObj) {
-                    targetLat = convertDMSToDD(latObj, latRef);
-                    targetLng = convertDMSToDD(lonObj, lonRef);
+                if (width > height) {
+                    if (width > MAX_WIDTH) { height *= MAX_WIDTH / width; width = MAX_WIDTH; }
+                } else {
+                    if (height > MAX_HEIGHT) { width *= MAX_HEIGHT / height; height = MAX_HEIGHT; }
                 }
 
-                db.collection("strata_records").add({
-                    title: titleInput || "추억의 사진",
-                    desc: descInput || "",
-                    year: extractedYear,
-                    dong: determinedDong,
-                    author: authorInput || "익명",
-                    imgUrl: base64Img,
-                    lat: targetLat,
-                    lng: targetLng,
-                    likes: 0,
-                    isQuest: activeQuestTag !== null,
-                    questName: activeQuestTag || "",
-                    comments: [],
-                    createdAt: firebase.firestore.FieldValue.serverTimestamp()
-                }).then(() => {
+                canvas.width = width;
+                canvas.height = height;
+                const ctx = canvas.getContext('2d');
+                ctx.drawImage(img, 0, 0, width, height);
+                const compressedDataUrl = canvas.toDataURL('image/jpeg', 0.7);
+
+                EXIF.getData(file, function() {
+                    const dateTime = EXIF.getTag(this, "DateTimeOriginal");
+                    let extractedYear = "2026";
+                    if (dateTime) {
+                        const yearPart = dateTime.split(/[:\s]/)[0];
+                        if (yearPart && yearPart.length === 4) extractedYear = yearPart;
+                    }
+
+                    const latObj = EXIF.getTag(this, "GPSLatitude");
+                    const lonObj = EXIF.getTag(this, "GPSLongitude");
+                    const latRef = EXIF.getTag(this, "GPSLatitudeRef");
+                    const lonRef = EXIF.getTag(this, "GPSLongitudeRef");
+
                     hideLoading();
-                    alert("등록되었습니다!");
-                    activeQuestTag = null;
-                }).catch(err => {
-                    hideLoading();
-                    alert("오류 발생: " + err.message);
+
+                    const titleInput = prompt("사진 제목이나 장소명을 입력해주세요:", "광명 추억의 풍경");
+                    if (titleInput === null) return;
+
+                    const descInput = prompt("사진에 얽힌 설명이나 에피소드를 적어주세요:", "");
+                    const authorInput = prompt("작가(닉네임)를 입력해주세요:", "광명토박이");
+
+                    showLoading("데이터베이스에 저장 중...");
+
+                    let targetLat = DONG_COORDS['철산동'].lat;
+                    let targetLng = DONG_COORDS['철산동'].lng;
+                    let determinedDong = '철산동';
+
+                    if (latObj && lonObj) {
+                        targetLat = convertDMSToDD(latObj, latRef);
+                        targetLng = convertDMSToDD(lonObj, lonRef);
+                    }
+
+                    db.collection("strata_records").add({
+                        title: titleInput || "추억의 사진",
+                        desc: descInput || "",
+                        year: extractedYear,
+                        dong: determinedDong,
+                        author: authorInput || "익명",
+                        imgUrl: compressedDataUrl,
+                        lat: targetLat,
+                        lng: targetLng,
+                        likes: 0,
+                        isQuest: activeQuestTag !== null,
+                        questName: activeQuestTag || "",
+                        comments: [],
+                        createdAt: firebase.firestore.FieldValue.serverTimestamp()
+                    }).then(() => {
+                        hideLoading();
+                        alert("성공적으로 등록되었습니다!");
+                        activeQuestTag = null;
+                    }).catch(err => {
+                        hideLoading();
+                        alert("오류 발생: " + err.message);
+                    });
                 });
             };
-            reader.readAsDataURL(file);
-        });
+            img.src = e.target.result;
+        };
+        reader.readAsDataURL(file);
     }
 
     function convertDMSToDD(dms, ref) {
@@ -783,12 +809,40 @@
         });
     }
 
-    function deleteRecord(id) {
-        const pw = prompt("관리자 비밀번호:");
+    // 기록 수정 기능
+    function editRecord(id, oldTitle, oldDesc, oldYear) {
+        const pw = prompt("수정하려면 관리자 비밀번호를 입력하세요:");
         if (pw === MASTER_ADMIN_PW) {
-            db.collection("strata_records").doc(id).delete().then(() => alert("삭제되었습니다."));
+            const newTitle = prompt("새로운 제목을 입력하세요:", oldTitle);
+            if (newTitle === null) return;
+            const newDesc = prompt("새로운 설명을 입력하세요:", oldDesc);
+            if (newDesc === null) return;
+            const newYear = prompt("새로운 연도를 입력하세요 (예: 1990):", oldYear);
+            if (newYear === null) return;
+
+            db.collection("strata_records").doc(id).update({
+                title: newTitle,
+                desc: newDesc,
+                year: newYear
+            }).then(() => {
+                alert("기록이 수정되었습니다.");
+            }).catch(err => {
+                alert("수정 오류: " + err.message);
+            });
         } else if (pw !== null) {
-            alert("비밀번호가 틀렸습니다.");
+            alert("비밀번호가 일치하지 않습니다.");
+        }
+    }
+
+    // 기록 삭제 기능
+    function deleteRecord(id) {
+        const pw = prompt("삭제하려면 관리자 비밀번호를 입력하세요:");
+        if (pw === MASTER_ADMIN_PW) {
+            db.collection("strata_records").doc(id).delete().then(() => {
+                alert("기록이 삭제되었습니다.");
+            });
+        } else if (pw !== null) {
+            alert("비밀번호가 일치하지 않습니다.");
         }
     }
 
