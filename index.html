@@ -489,8 +489,6 @@
 
         roadview = new kakao.maps.Roadview(document.getElementById('roadview'));
         roadviewClient = new kakao.maps.RoadviewClient();
-        const roadviewControl = new kakao.maps.RoadviewControl();
-        map.addControl(roadviewControl, kakao.maps.ControlPosition.TOPRIGHT);
 
         initFirebaseRealtimeSync();
         initModalZoomEvents();
