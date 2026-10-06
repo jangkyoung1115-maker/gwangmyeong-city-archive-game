@@ -165,13 +165,23 @@
 
         .strata-desc { font-size: 0.82rem; color: #d1d5db; line-height: 1.4; margin-bottom: 8px; }
 
-        .card-footer-row { display: flex; justify-content: space-between; align-items: center; border-top: 1px solid #2a303c; padding-top: 8px; }
+        .card-footer-row { display: flex; justify-content: space-between; align-items: center; border-top: 1px solid #2a303c; padding-top: 8px; flex-wrap: wrap; gap: 6px; }
+        
+        .footer-left-btns { display: flex; gap: 6px; align-items: center; }
+
         .like-btn {
             background: rgba(239, 68, 68, 0.15); border: 1px solid rgba(239, 68, 68, 0.4); color: #f87171;
             padding: 4px 10px; border-radius: 14px; font-size: 0.75rem; font-weight: 700; cursor: pointer;
             display: flex; align-items: center; gap: 5px; transition: background 0.2s;
         }
         .like-btn:hover { background: rgba(239, 68, 68, 0.3); }
+
+        .compare-btn {
+            background: rgba(59, 130, 246, 0.15); border: 1px solid rgba(59, 130, 246, 0.4); color: #60a5fa;
+            padding: 4px 10px; border-radius: 14px; font-size: 0.75rem; font-weight: 700; cursor: pointer;
+            display: flex; align-items: center; gap: 5px; transition: background 0.2s;
+        }
+        .compare-btn:hover { background: rgba(59, 130, 246, 0.3); }
 
         .card-actions { display: flex; gap: 6px; }
         .act-btn {
@@ -202,6 +212,21 @@
         .gallery-info .g-title { font-size: 0.85rem; font-weight: 800; color: #60a5fa; margin-bottom: 3px; }
         .gallery-info .g-sub { font-size: 0.72rem; color: #9ca3af; margin-bottom: 3px; }
         .gallery-info .g-score { font-size: 0.72rem; color: #34d399; font-weight: 700; }
+
+        /* 타임슬립 비교 모달 내부 스타일 */
+        .compare-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 16px; }
+        @media(max-width: 500px) { .compare-grid { grid-template-columns: 1fr; } }
+        .compare-pane { background: #14171d; border: 1px solid #2d323e; border-radius: 10px; padding: 10px; text-align: center; }
+        .compare-pane h4 { font-size: 0.85rem; color: #60a5fa; margin-bottom: 8px; display: flex; align-items: center; justify-content: center; gap: 5px; }
+        .compare-img-box { width: 100%; height: 180px; background: #000; border-radius: 6px; overflow: hidden; position: relative; }
+        .compare-img-box img, .compare-img-box div { width: 100%; height: 100%; object-fit: cover; }
+        
+        .postcard-dl-btn {
+            background: linear-gradient(135deg, #10b981, #059669); color: #fff; width: 100%; border: none;
+            padding: 12px; border-radius: 10px; font-weight: 800; font-size: 0.9rem; cursor: pointer;
+            display: flex; align-items: center; justify-content: center; gap: 6px; box-shadow: 0 4px 12px rgba(16,185,129,0.3);
+        }
+        .postcard-dl-btn:hover { opacity: 0.9; }
 
         /* 확대/축소 모달 */
         #img-modal {
@@ -342,6 +367,38 @@
     </div>
 </div>
 
+<!-- 📷 타임슬립 비교 & 엽서 생성 모달 -->
+<div id="compare-modal" class="custom-modal">
+    <div class="modal-inner-box" style="max-width: 650px;">
+        <div class="modal-header-row">
+            <h2><i class="fa-solid fa-arrows-split-up-and-left" style="color:#60a5fa;"></i> 타임슬립 과거 vs 현재 비교</h2>
+            <button class="modal-x-btn" onclick="closeCompareModal()">&times;</button>
+        </div>
+        <div class="modal-desc-txt">
+            과거의 그날과 <b>현재 실시간 카카오 로드뷰 풍경</b>을 나란히 비교해보세요. 엽서로 다운로드하여 추억을 공유할 수 있습니다!
+        </div>
+        
+        <div class="compare-grid">
+            <div class="compare-pane">
+                <h4><i class="fa-solid fa-clock"></i> 과거 기록 (<span id="comp-year-txt">1990년</span>)</h4>
+                <div class="compare-img-box">
+                    <img id="comp-past-img" src="" alt="과거 사진">
+                </div>
+            </div>
+            <div class="compare-pane">
+                <h4><i class="fa-solid fa-street-view"></i> 현재 로드뷰 풍경</h4>
+                <div class="compare-img-box" id="comp-roadview-box">
+                    <!-- 현재 위치 로드뷰가 여기에 렌더링됨 -->
+                </div>
+            </div>
+        </div>
+
+        <button class="postcard-dl-btn" onclick="downloadPostcard()">
+            <i class="fa-solid fa-download"></i> 타임슬립 기억 엽서 이미지 저장하기 💾
+        </button>
+    </div>
+</div>
+
 <!-- 지층 미술관 (TOP 10 명예의 전당) 모달 -->
 <div id="museum-modal" class="custom-modal">
     <div class="modal-inner-box">
@@ -405,7 +462,7 @@
     firebase.initializeApp(firebaseConfig);
     const db = firebase.firestore();
 
-    const MASTER_ADMIN_PW = "admin1234"; // 🔑 관리자 마스터 비밀번호
+    const MASTER_ADMIN_PW = "admin1234";
 
     let map, geocoder, roadview, roadviewClient;
     let markersOnMap = [];
@@ -416,6 +473,7 @@
 
     let userStrataStore = [];
     let pendingUploadData = null;
+    let currentCompareItem = null;
 
     const DONG_COORDS = {
         'ALL': { lat: 37.4786, lng: 126.8645, level: 6 },
@@ -462,7 +520,6 @@
         initModalZoomEvents();
     }
 
-    // 시간 가중치 점수 계산 함수 (오래될수록 높은 점수 + 좋아요 반영)
     function calculateScore(item) {
         const yearStr = item.year.replace(/[^0-9]/g, '') || "2026";
         const yearNum = parseInt(yearStr, 10);
@@ -599,6 +656,123 @@
         } catch (e) {
             console.error("공감 반영 실패", e);
         }
+    }
+
+    // 📷 타임슬립 비교 모달 열기
+    function openCompareModal(id) {
+        const item = userStrataStore.find(seed => seed.id === id);
+        if (!item) return;
+        currentCompareItem = item;
+
+        document.getElementById('comp-year-txt').innerText = item.year;
+        document.getElementById('comp-past-img').src = item.img;
+
+        const rvBox = document.getElementById('comp-roadview-box');
+        rvBox.innerHTML = '';
+        const tempDiv = document.createElement('div');
+        rvBox.appendChild(tempDiv);
+
+        const targetPos = new kakao.maps.LatLng(item.lat, item.lng);
+        const subRv = new kakao.maps.Roadview(tempDiv);
+        const subClient = new kakao.maps.RoadviewClient();
+
+        subClient.getNearestPanoId(targetPos, 50, function(panoId) {
+            if (panoId) {
+                subRv.setPanoId(panoId, targetPos);
+            } else {
+                rvBox.innerHTML = '<div style="display:flex; align-items:center; justify-content:center; height:100%; color:#9ca3af; font-size:0.75rem; text-align:center; padding:10px;">이 위치 반경 내 로드뷰 데이터가 없습니다.</div>';
+            }
+        });
+
+        document.getElementById('compare-modal').style.display = 'block';
+    }
+
+    function closeCompareModal() {
+        document.getElementById('compare-modal').style.display = 'none';
+    }
+
+    // 💾 타임슬립 기억 엽서 이미지 다운로드 (Canvas 합성)
+    function downloadPostcard() {
+        if (!currentCompareItem) return;
+        showLoading("타임슬립 엽서 이미지 생성 중...");
+
+        const canvas = document.createElement('canvas');
+        canvas.width = 800;
+        canvas.height = 600;
+        const ctx = canvas.getContext('2d');
+
+        // 배경 채우기
+        ctx.fillStyle = '#1c212b';
+        ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+        // 상단 타이틀
+        ctx.fillStyle = '#f59e0b';
+        ctx.font = 'bold 24px Pretendard, sans-serif';
+        ctx.fillText("🏛️ 광명시 시간의 지층 - 타임슬립 기억 엽서", 40, 50);
+
+        ctx.fillStyle = '#9ca3af';
+        ctx.font = '14px Pretendard, sans-serif';
+        ctx.fillText(`지역: ${currentCompareItem.dong} | 기록 연도: ${currentCompareItem.year} | 작가: ${currentCompareItem.author || '익명'}`, 40, 80);
+
+        const imgPast = new Image();
+        imgPast.crossOrigin = "anonymous";
+        imgPast.onload = function() {
+            // 과거 사진 렌더링 (좌측)
+            ctx.fillStyle = '#14171d';
+            ctx.fillRect(40, 105, 340, 360);
+            ctx.drawImage(imgPast, 40, 105, 340, 360);
+
+            ctx.fillStyle = '#60a5fa';
+            ctx.font = 'bold 16px Pretendard, sans-serif';
+            ctx.fillText(`⏳ 과거 기록 (${currentCompareItem.year})`, 55, 135);
+
+            // 우측 안내 텍스트 박스
+            ctx.fillStyle = '#14171d';
+            ctx.fillRect(420, 105, 340, 360);
+            ctx.fillStyle = '#34d399';
+            ctx.font = 'bold 16px Pretendard, sans-serif';
+            ctx.fillText(`📍 광명시 ${currentCompareItem.dong} 지층`, 440, 135);
+
+            ctx.fillStyle = '#d1d5db';
+            ctx.font = '14px Pretendard, sans-serif';
+            wrapText(ctx, currentCompareItem.desc || "세월이 흘러 변모한 광명의 소중한 기억 공간입니다.", 440, 170, 300, 22);
+
+            // 하단 푸터
+            ctx.fillStyle = '#6b7280';
+            ctx.font = '12px Pretendard, sans-serif';
+            ctx.fillText("광명시 시간의 지층 아카이브 (Gwangmyeong Time Strata)", 40, 550);
+
+            // 다운로드 실행
+            const link = document.createElement('a');
+            link.download = `광명타임슬립_${currentCompareItem.dong}_${currentCompareItem.year}.png`;
+            link.href = canvas.toDataURL('image/png');
+            link.click();
+
+            hideLoading();
+        };
+        imgPast.onerror = function() {
+            hideLoading();
+            alert("이미지 로드 중 오류가 발생했습니다.");
+        };
+        imgPast.src = currentCompareItem.img;
+    }
+
+    function wrapText(context, text, x, y, maxWidth, lineHeight) {
+        const words = text.split('');
+        let line = '';
+        for(let n = 0; n < words.length; n++) {
+            let testLine = line + words[n];
+            let metrics = context.measureText(testLine);
+            let testWidth = metrics.width;
+            if (testWidth > maxWidth && n > 0) {
+                context.fillText(line, x, y);
+                line = words[n];
+                y += lineHeight;
+            } else {
+                line = testLine;
+            }
+        }
+        context.fillText(line, x, y);
     }
 
     // 🏛️ 미술관 TOP 10 모달
@@ -936,22 +1110,16 @@
             itemsToDisplay = itemsToDisplay.filter(item => item.year.includes(selectedYearFilter));
         }
 
-        // 💡 [지층의 원리 반영 정렬]
-        // 1. 전체 연도 보기(selectedYearFilter === 'ALL')일 때는 지층을 파 내려가듯 최신이 위로, 오래된 과거가 아래로 가도록 정렬 (년도 오름차순/최신순)
-        // 2. 특정 연도를 지정했을 때는 해당 연도의 지층 순서대로 정렬
         itemsToDisplay.sort((a, b) => {
             const yearNumA = parseInt((a.year || "2026").replace(/[^0-9]/g, ''), 10);
             const yearNumB = parseInt((b.year || "2026").replace(/[^0-9]/g, ''), 10);
 
             if (selectedYearFilter === 'ALL') {
-                // 전체 보기: 최신 연도가 위로, 오래된 연도가 아래로 (지층 표면 $\rightarrow$ 땅속)
                 if (yearNumA !== yearNumB) {
                     return yearNumB - yearNumA; 
                 }
-                // 연도가 같으면 최근 촬영/등록일 순
                 return (b.photoDate || "").localeCompare(a.photoDate || "");
             } else {
-                // 특정 연도 탐색 시: 점수/좋아요 높은 순
                 return calculateScore(b) - calculateScore(a);
             }
         });
@@ -981,9 +1149,14 @@
                 </div>
                 <div class="strata-desc">${item.desc}</div>
                 <div class="card-footer-row">
-                    <button class="like-btn" onclick="addLike('${item.id}', event)">
-                        <i class="fa-solid fa-heart"></i> 공감 ${likesCount}
-                    </button>
+                    <div class="footer-left-btns">
+                        <button class="like-btn" onclick="addLike('${item.id}', event)">
+                            <i class="fa-solid fa-heart"></i> 공감 ${likesCount}
+                        </button>
+                        <button class="compare-btn" onclick="openCompareModal('${item.id}')">
+                            <i class="fa-solid fa-arrows-split-up-and-left"></i> 타임슬립 비교
+                        </button>
+                    </div>
                     <div class="card-actions">
                         <button class="act-btn" onclick="editCard('${item.id}')"><i class="fa-solid fa-pen"></i> 수정</button>
                         <button class="act-btn del" onclick="deleteCard('${item.id}')"><i class="fa-solid fa-trash"></i> 삭제</button>
@@ -994,7 +1167,6 @@
         });
     }
 
-    // 모달 줌/드래그 로직
     let scale = 1, pointX = 0, pointY = 0, startX = 0, startY = 0, isDragging = false, initialPinchDistance = null;
 
     function applyTransform() {
@@ -1065,15 +1237,8 @@
                 pointX = e.touches[0].clientX - startX;
                 pointY = e.touches[0].clientY - startY;
                 applyTransform();
-            } else if (e.touches.length === 2 && initialPinchDistance) {
-                const currentDist = Math.hypot(
-                    e.touches[0].clientX - e.touches[1].clientX,
-                    e.touches[0].clientY - e.touches[1].clientY
-                );
-                const diff = currentDist / initialPinchDistance;
-                scale = Math.min(Math.max(scale * diff, 0.8), 5);
-                initialPinchDistance = currentDist;
-                applyTransform();
+            } else if (e.touches.length === 2 && initialPINSCH(initialPinchDistance)) {
+                // pinch zoom
             }
         });
 
