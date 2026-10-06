@@ -38,24 +38,12 @@
 
         #main-container { display: flex; flex-direction: column; height: calc(100vh - 50px); width: 100%; }
 
-        /* 상단 지도 & 로드뷰 영역 */
+        /* 상단 지도 영역 */
         #view-section {
             height: 38vh; min-height: 220px; width: 100%; position: relative; background: #181b22;
             border-bottom: 2px solid #2d323e; flex-shrink: 0;
         }
-        #map, #roadview-container { width: 100%; height: 100%; position: absolute; top: 0; left: 0; }
-        #roadview-container { display: none; }
-
-        .view-toggle {
-            position: absolute; top: 12px; right: 12px; z-index: 20;
-            background: rgba(24, 27, 34, 0.9); border: 1px solid #3b82f6; border-radius: 20px;
-            padding: 4px; display: flex; gap: 4px;
-        }
-        .toggle-btn {
-            background: none; border: none; color: #9ca3af; padding: 6px 12px;
-            font-size: 0.75rem; font-weight: 700; border-radius: 16px; cursor: pointer;
-        }
-        .toggle-btn.active { background: #2563eb; color: #fff; }
+        #map { width: 100%; height: 100%; position: absolute; top: 0; left: 0; }
 
         /* 중앙 위치 선택 핀 (초기 숨김) */
         #center-pin {
@@ -85,21 +73,46 @@
         .info-card .info-title { font-weight: 800; color: #60a5fa; margin-bottom: 2px; }
         .info-card .info-date { font-size: 0.7rem; color: #9ca3af; margin-bottom: 2px; }
 
-        /* 하단 지층 패널 */
-        #strata-panel { flex: 1; background: #14171d; display: flex; flex-direction: column; padding: 16px; overflow-y: auto; }
-        
+        /* 하단 메인 콘텐츠 영역 (좌측 세로 타임슬라이더 + 우측 타임라인) */
+        #content-body {
+            flex: 1; background: #14171d; display: flex; overflow: hidden; position: relative;
+        }
+
+        /* ⏳ 세로형 땅굴 타임머신 슬라이더 패널 (왼쪽 고정) */
+        #strata-drill-panel {
+            width: 90px; background: linear-gradient(180deg, #1c212b 0%, #0d1117 100%);
+            border-right: 1px solid #2d323e; display: flex; flex-direction: column; align-items: center;
+            padding: 14px 4px; flex-shrink: 0; position: relative;
+        }
+        .drill-title {
+            font-size: 0.7rem; font-weight: 800; color: #f59e0b; text-align: center; margin-bottom: 10px;
+            line-height: 1.2; display: flex; flex-direction: column; align-items: center; gap: 2px;
+        }
+        .vertical-slider-wrap {
+            flex: 1; display: flex; align-items: center; justify-content: center; position: relative;
+            padding: 10px 0;
+        }
+        /* 세로 슬라이더 구현을 위한 변형 */
+        input[type=range].vertical-range {
+            writing-mode: bt-lr; /* IE/Edge */
+            -webkit-appearance: slider-vertical; /* Webkit */
+            width: 24px; height: 100%; max-height: 320px;
+            accent-color: #f59e0b; cursor: pointer; background: transparent;
+        }
+        .drill-depth-indicator {
+            font-size: 0.72rem; font-weight: 800; color: #38bdf8; text-align: center; margin-top: 10px;
+            background: rgba(56, 189, 248, 0.1); border: 1px solid rgba(56, 189, 248, 0.3);
+            padding: 4px 6px; border-radius: 8px; width: 100%;
+        }
+
+        /* 우측 타임라인 본문 영역 */
+        #strata-main-content {
+            flex: 1; display: flex; flex-direction: column; padding: 16px; overflow-y: auto;
+        }
+
         .panel-header { margin-bottom: 10px; }
         .panel-header h2 { font-size: 1.05rem; color: #fff; margin-bottom: 4px; display: flex; align-items: center; gap: 6px; }
         .panel-header p { font-size: 0.78rem; color: #8b949e; line-height: 1.35; }
-
-        /* 타임 슬라이더 바 */
-        .time-slider-container {
-            background: #1c212b; border: 1px solid #2d323e; border-radius: 12px;
-            padding: 10px 14px; margin-bottom: 12px; flex-shrink: 0;
-        }
-        .slider-label-row { display: flex; justify-content: space-between; font-size: 0.75rem; color: #9ca3af; margin-bottom: 6px; font-weight: 700; }
-        .slider-label-row span:last-child { color: #f59e0b; }
-        input[type=range] { width: 100%; accent-color: #f59e0b; cursor: pointer; }
 
         .category-filter {
             display: flex; gap: 8px; overflow-x: auto; padding: 2px 2px 8px 2px; margin-bottom: 10px;
@@ -213,7 +226,7 @@
         .gallery-info .g-sub { font-size: 0.72rem; color: #9ca3af; margin-bottom: 3px; }
         .gallery-info .g-score { font-size: 0.72rem; color: #34d399; font-weight: 700; }
 
-        /* 타임슬립 비교 모달 내부 스타일 */
+        /* 타임슬립 비교 모달 내부 스타일 (스카이뷰 안정적 비교) */
         .compare-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 16px; }
         @media(max-width: 500px) { .compare-grid { grid-template-columns: 1fr; } }
         .compare-pane { background: #14171d; border: 1px solid #2d323e; border-radius: 10px; padding: 10px; text-align: center; }
@@ -284,7 +297,7 @@
         @media (min-width: 768px) {
             #main-container { flex-direction: row; }
             #view-section { height: 100%; flex: 1; border-bottom: none; border-right: 2px solid #2d323e; }
-            #strata-panel { width: 420px; flex: none; }
+            #content-body { width: 440px; flex: none; }
         }
     </style>
 </head>
@@ -319,55 +332,57 @@
             </button>
         </div>
 
-        <div class="view-toggle">
-            <button class="toggle-btn active" id="btn-map" onclick="switchView('map')">🗺 지도</button>
-            <button class="toggle-btn" id="btn-rv" onclick="switchView('rv')">📷 현재 로드뷰</button>
-        </div>
         <div id="map"></div>
-        <div id="roadview-container"></div>
     </div>
 
-    <div id="strata-panel">
-        <div class="panel-header">
-            <h2><i class="fa-solid fa-clock-rotate-left" style="color:#f59e0b;"></i> 광명 행정동별 시간 지층</h2>
-            <p>땅을 파 내려가듯 위에는 최신, 아래로 갈수록 오래된 시대의 지층이 쌓입니다.</p>
-        </div>
-
-        <!-- 타임 슬라이더 바 -->
-        <div class="time-slider-container">
-            <div class="slider-label-row">
-                <span>⏳ 타임머신 슬라이더</span>
-                <span id="slider-year-val">전체 연도 보기</span>
+    <!-- 좌측 세로 땅굴 슬라이더 + 우측 타임라인 컨테이너 -->
+    <div id="content-body">
+        <!-- ⏳ 세로형 땅굴 타임머신 슬라이더 패널 -->
+        <div id="strata-drill-panel">
+            <div class="drill-title">
+                <i class="fa-solid fa-arrow-down-long" style="color:#f59e0b;"></i>
+                <span>지층<br>탐색기</span>
             </div>
-            <input type="range" id="time-slider" min="1970" max="2026" value="2026" oninput="onTimeSliderChange(this.value)">
+            <div class="vertical-slider-wrap">
+                <input type="range" class="vertical-range" id="time-slider" min="1970" max="2026" value="2026" oninput="onTimeSliderChange(this.value)">
+            </div>
+            <div class="drill-depth-indicator" id="slider-year-val" title="현재 선택된 연도">현재</div>
         </div>
 
-        <div class="category-filter" id="dong-filter-bar">
-            <button class="cat-btn active" onclick="filterDong('ALL', this)">전체 동 보기</button>
-            <button class="cat-btn" onclick="filterDong('철산동', this)">철산동</button>
-            <button class="cat-btn" onclick="filterDong('하안동', this)">하안동</button>
-            <button class="cat-btn" onclick="filterDong('소하동', this)">소하동</button>
-            <button class="cat-btn" onclick="filterDong('광명동', this)">광명동</button>
-            <button class="cat-btn" onclick="filterDong('일직동', this)">일직동</button>
-            <button class="cat-btn" onclick="filterDong('학온동', this)">학온동</button>
-            <button class="cat-btn" onclick="filterDong('옥길동', this)">옥길동</button>
+        <!-- 우측 타임라인 본문 -->
+        <div id="strata-main-content">
+            <div class="panel-header">
+                <h2><i class="fa-solid fa-clock-rotate-left" style="color:#f59e0b;"></i> 광명 행정동별 시간 지층</h2>
+                <p>땅을 파 내려가듯 위에는 최신, 아래로 갈수록 오래된 시대의 지층이 쌓입니다.</p>
+            </div>
+
+            <div class="category-filter" id="dong-filter-bar">
+                <button class="cat-btn active" onclick="filterDong('ALL', this)">전체 동</button>
+                <button class="cat-btn" onclick="filterDong('철산동', this)">철산동</button>
+                <button class="cat-btn" onclick="filterDong('하안동', this)">하안동</button>
+                <button class="cat-btn" onclick="filterDong('소하동', this)">소하동</button>
+                <button class="cat-btn" onclick="filterDong('광명동', this)">광명동</button>
+                <button class="cat-btn" onclick="filterDong('일직동', this)">일직동</button>
+                <button class="cat-btn" onclick="filterDong('학온동', this)">학온동</button>
+                <button class="cat-btn" onclick="filterDong('옥길동', this)">옥길동</button>
+            </div>
+
+            <div id="selected-area-display" class="area-badge">
+                <span><i class="fa-solid fa-location-dot"></i> <span id="current-area-name">전체 광명시 지층</span></span>
+                <span style="font-size: 0.72rem; color:#9ca3af; font-weight: normal;">⏳ 지층 순서 정렬</span>
+            </div>
+
+            <button class="upload-btn" onclick="document.getElementById('file-input').click()">
+                <i class="fa-solid fa-camera-retro"></i> 추억 사진 올리고 랭킹 참여하기
+            </button>
+            <input type="file" id="file-input" accept="image/*" style="display:none;" onchange="handlePhotoSeedUpload(event)">
+
+            <div class="strata-timeline" id="strata-list"></div>
         </div>
-
-        <div id="selected-area-display" class="area-badge">
-            <span><i class="fa-solid fa-location-dot"></i> <span id="current-area-name">전체 광명시 지층</span></span>
-            <span style="font-size: 0.72rem; color:#9ca3af; font-weight: normal;">⏳ 지층 순서 정렬</span>
-        </div>
-
-        <button class="upload-btn" onclick="document.getElementById('file-input').click()">
-            <i class="fa-solid fa-camera-retro"></i> 추억 사진 올리고 랭킹 참여하기
-        </button>
-        <input type="file" id="file-input" accept="image/*" style="display:none;" onchange="handlePhotoSeedUpload(event)">
-
-        <div class="strata-timeline" id="strata-list"></div>
     </div>
 </div>
 
-<!-- 📷 타임슬립 비교 & 엽서 생성 모달 -->
+<!-- 📷 타임슬립 스카이뷰 비교 & 엽서 생성 모달 -->
 <div id="compare-modal" class="custom-modal">
     <div class="modal-inner-box" style="max-width: 650px;">
         <div class="modal-header-row">
@@ -375,7 +390,7 @@
             <button class="modal-x-btn" onclick="closeCompareModal()">&times;</button>
         </div>
         <div class="modal-desc-txt">
-            과거의 그날과 <b>현재 실시간 카카오 로드뷰 풍경</b>을 나란히 비교해보세요. 엽서로 다운로드하여 추억을 공유할 수 있습니다!
+            과거의 그날과 <b>현재 실시간 카카오 위성 지도(스카이뷰) 풍경</b>을 나란히 비교합니다. (까만 화면 오류 방지)
         </div>
         
         <div class="compare-grid">
@@ -386,9 +401,9 @@
                 </div>
             </div>
             <div class="compare-pane">
-                <h4><i class="fa-solid fa-street-view"></i> 현재 로드뷰 풍경</h4>
-                <div class="compare-img-box" id="comp-roadview-box">
-                    <!-- 현재 위치 로드뷰가 여기에 렌더링됨 -->
+                <h4><i class="fa-solid fa-earth-asia"></i> 현재 위성 지도 풍경</h4>
+                <div class="compare-img-box" id="comp-skyview-box">
+                    <!-- 안정적인 스카이뷰 지도가 여기에 렌더링됨 -->
                 </div>
             </div>
         </div>
@@ -464,7 +479,7 @@
 
     const MASTER_ADMIN_PW = "admin1234";
 
-    let map, geocoder, roadview, roadviewClient;
+    let map, geocoder;
     let markersOnMap = [];
     let activeInfoWindow = null;
     let selectedDong = 'ALL';
@@ -507,14 +522,7 @@
         map.setMaxLevel(8);
 
         geocoder = new kakao.maps.services.Geocoder();
-        const rvContainer = document.getElementById('roadview-container');
-        roadview = new kakao.maps.Roadview(rvContainer);
-        roadviewClient = new kakao.maps.RoadviewClient();
-
         currentLatLng = new kakao.maps.LatLng(defaultPos.lat, defaultPos.lng);
-        roadviewClient.getNearestPanoId(currentLatLng, 50, function(panoId) {
-            if (panoId) roadview.setPanoId(panoId, currentLatLng);
-        });
 
         initFirebaseRealtimeSync();
         initModalZoomEvents();
@@ -541,23 +549,6 @@
         });
     }
 
-    function switchView(mode) {
-        const mapEl = document.getElementById('map');
-        const rvEl = document.getElementById('roadview-container');
-        const btnMap = document.getElementById('btn-map');
-        const btnRv = document.getElementById('btn-rv');
-
-        if (mode === 'map') {
-            mapEl.style.display = 'block'; rvEl.style.display = 'none';
-            btnMap.classList.add('active'); btnRv.classList.remove('active');
-            map.relayout();
-        } else {
-            mapEl.style.display = 'none'; rvEl.style.display = 'block';
-            btnRv.classList.add('active'); btnMap.classList.remove('active');
-            roadview.relayout();
-        }
-    }
-
     function filterDong(dong, el) {
         selectedDong = dong;
 
@@ -576,22 +567,19 @@
         
         map.panTo(moveLatLng);
         map.setLevel(targetPos.level);
-
         currentLatLng = moveLatLng;
-        roadviewClient.getNearestPanoId(currentLatLng, 50, function(panoId) {
-            if (panoId) roadview.setPanoId(panoId, currentLatLng);
-        });
 
         renderStrataTimeline();
     }
 
     function onTimeSliderChange(val) {
+        const indicator = document.getElementById('slider-year-val');
         if (val >= 2026) {
             selectedYearFilter = 'ALL';
-            document.getElementById('slider-year-val').innerText = "전체 연도 보기";
+            indicator.innerText = "전체";
         } else {
             selectedYearFilter = val;
-            document.getElementById('slider-year-val').innerText = `${val}년 지층`;
+            indicator.innerText = `${val}년`;
         }
         renderStrataTimeline();
         updateMapMarkers();
@@ -634,11 +622,7 @@
                 if (activeInfoWindow) activeInfoWindow.close();
                 infowindow.open(map, marker);
                 activeInfoWindow = infowindow;
-                
                 currentLatLng = markerPos;
-                roadviewClient.getNearestPanoId(currentLatLng, 50, function(panoId) {
-                    if (panoId) roadview.setPanoId(panoId, currentLatLng);
-                });
             });
 
             markersOnMap.push(marker);
@@ -658,7 +642,7 @@
         }
     }
 
-    // 📷 타임슬립 비교 모달 열기
+    // 📷 타임슬립 비교 모달 (스카이뷰 위성사진 기반으로 안정적 렌더링)
     function openCompareModal(id) {
         const item = userStrataStore.find(seed => seed.id === id);
         if (!item) return;
@@ -667,29 +651,19 @@
         document.getElementById('comp-year-txt').innerText = item.year;
         document.getElementById('comp-past-img').src = item.img;
 
-        const rvBox = document.getElementById('comp-roadview-box');
-        rvBox.innerHTML = '';
-        const tempDiv = document.createElement('div');
-        tempDiv.style.width = '100%';
-        tempDiv.style.height = '100%';
-        rvBox.appendChild(tempDiv);
+        const skyBox = document.getElementById('comp-skyview-box');
+        skyBox.innerHTML = '';
 
-        // 모달을 먼저 화면에 띄운 후 로드뷰 객체를 생성하고 relayout을 호출해야 까맣게 나오는 현상이 방지됩니다.
         document.getElementById('compare-modal').style.display = 'block';
 
         setTimeout(() => {
             const targetPos = new kakao.maps.LatLng(item.lat, item.lng);
-            const subRv = new kakao.maps.Roadview(tempDiv);
-            const subClient = new kakao.maps.RoadviewClient();
-
-            subClient.getNearestPanoId(targetPos, 50, function(panoId) {
-                if (panoId) {
-                    subRv.setPanoId(panoId, targetPos);
-                    setTimeout(() => { subRv.relayout(); }, 200);
-                } else {
-                    rvBox.innerHTML = '<div style="display:flex; align-items:center; justify-content:center; height:100%; color:#9ca3af; font-size:0.75rem; text-align:center; padding:10px;">이 위치 반경 내 로드뷰 데이터가 없습니다.</div>';
-                }
+            const subMap = new kakao.maps.Map(skyBox, {
+                center: targetPos,
+                level: 3,
+                mapTypeId: kakao.maps.MapTypeId.SKYVIEW
             });
+            new kakao.maps.Marker({ position: targetPos, map: subMap });
         }, 100);
     }
 
@@ -707,11 +681,9 @@
         canvas.height = 600;
         const ctx = canvas.getContext('2d');
 
-        // 배경 채우기
         ctx.fillStyle = '#1c212b';
         ctx.fillRect(0, 0, canvas.width, canvas.height);
 
-        // 상단 타이틀
         ctx.fillStyle = '#f59e0b';
         ctx.font = 'bold 24px Pretendard, sans-serif';
         ctx.fillText("🏛️ 광명시 시간의 지층 - 타임슬립 기억 엽서", 40, 50);
@@ -723,7 +695,6 @@
         const imgPast = new Image();
         imgPast.crossOrigin = "anonymous";
         imgPast.onload = function() {
-            // 과거 사진 렌더링 (좌측)
             ctx.fillStyle = '#14171d';
             ctx.fillRect(40, 105, 340, 360);
             ctx.drawImage(imgPast, 40, 105, 340, 360);
@@ -732,7 +703,6 @@
             ctx.font = 'bold 16px Pretendard, sans-serif';
             ctx.fillText(`⏳ 과거 기록 (${currentCompareItem.year})`, 55, 135);
 
-            // 우측 안내 텍스트 박스
             ctx.fillStyle = '#14171d';
             ctx.fillRect(420, 105, 340, 360);
             ctx.fillStyle = '#34d399';
@@ -743,12 +713,10 @@
             ctx.font = '14px Pretendard, sans-serif';
             wrapText(ctx, currentCompareItem.desc || "세월이 흘러 변모한 광명의 소중한 기억 공간입니다.", 440, 170, 300, 22);
 
-            // 하단 푸터
             ctx.fillStyle = '#6b7280';
             ctx.font = '12px Pretendard, sans-serif';
             ctx.fillText("광명시 시간의 지층 아카이브 (Gwangmyeong Time Strata)", 40, 550);
 
-            // 다운로드 실행
             const link = document.createElement('a');
             link.download = `광명타임슬립_${currentCompareItem.dong}_${currentCompareItem.year}.png`;
             link.href = canvas.toDataURL('image/png');
@@ -963,7 +931,6 @@
                     saveRecordToFirebase(lat, lng, pendingUploadData.extractedYear || "2024년", pendingUploadData.formattedDate || "2024-01-01", null);
                     pendingUploadData = null;
                 } else {
-                    switchView('map');
                     document.getElementById('center-pin').style.display = 'block';
                     document.getElementById('picker-controls').style.display = 'flex';
                     alert("⚠️ 사진에 GPS 위치 정보가 없습니다.\n지도를 이동하여 중앙 주황색 핀을 촬영 장소에 맞춘 뒤,\n좌측 상단의 [이 위치 선택 완료] 버튼을 눌러주세요.");
@@ -1029,9 +996,6 @@
 
                 hideLoading();
                 currentLatLng = new kakao.maps.LatLng(lat, lng);
-                roadviewClient.getNearestPanoId(currentLatLng, 50, function(panoId) {
-                    if (panoId) roadview.setPanoId(panoId, currentLatLng);
-                });
                 filterDong(promptDong, null);
                 alert(`🎉 축하합니다! [${authorName.trim()}] 작가님의 지층 기록이 등록되어 랭킹에 반영되었습니다!`);
 
@@ -1231,10 +1195,6 @@
                 startY = e.touches[0].clientY - pointY;
             } else if (e.touches.length === 2) {
                 isDragging = false;
-                initialPinchDistance = Math.hypot(
-                    e.touches[0].clientX - e.touches[1].clientX,
-                    e.touches[0].clientY - e.touches[1].clientY
-                );
             }
         });
 
@@ -1243,13 +1203,10 @@
                 pointX = e.touches[0].clientX - startX;
                 pointY = e.touches[0].clientY - startY;
                 applyTransform();
-            } else if (e.touches.length === 2 && initialPINSCH(initialPinchDistance)) {
-                // pinch zoom
             }
         });
 
         viewport.addEventListener('touchend', function(e) {
-            if (e.touches.length < 2) initialPinchDistance = null;
             if (e.touches.length === 0) isDragging = false;
         });
     }
