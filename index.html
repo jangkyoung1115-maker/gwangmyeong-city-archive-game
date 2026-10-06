@@ -305,7 +305,7 @@
     <div id="strata-panel">
         <div class="panel-header">
             <h2><i class="fa-solid fa-clock-rotate-left" style="color:#f59e0b;"></i> 광명 행정동별 시간 지층</h2>
-            <p>닉네임을 등록하고 지층 점수를 쌓아 명예작가 랭킹에 도전해 보세요!</p>
+            <p>땅을 파 내려가듯 위에는 최신, 아래로 갈수록 오래된 시대의 지층이 쌓입니다.</p>
         </div>
 
         <!-- 타임 슬라이더 바 -->
@@ -330,7 +330,7 @@
 
         <div id="selected-area-display" class="area-badge">
             <span><i class="fa-solid fa-location-dot"></i> <span id="current-area-name">전체 광명시 지층</span></span>
-            <span style="font-size: 0.72rem; color:#9ca3af; font-weight: normal;">🔥 실시간 순위 정렬</span>
+            <span style="font-size: 0.72rem; color:#9ca3af; font-weight: normal;">⏳ 지층 순서 정렬</span>
         </div>
 
         <button class="upload-btn" onclick="document.getElementById('file-input').click()">
@@ -356,7 +356,7 @@
     </div>
 </div>
 
-<!-- 시민 작가 랭킹 모달 -->
+<!-- 시민 작가 포인트 랭킹 모달 -->
 <div id="rank-modal" class="custom-modal">
     <div class="modal-inner-box" style="border-color: #10b981;">
         <div class="modal-header-row">
@@ -644,7 +644,6 @@
         const rankContainer = document.getElementById('author-rank-list');
         rankContainer.innerHTML = '';
 
-        // 닉네임별 포인트 합산 로직
         const authorPoints = {};
         userStrataStore.forEach(item => {
             const author = (item.author && item.author.trim() !== "") ? item.author.trim() : "익명 작가";
@@ -656,7 +655,6 @@
             authorPoints[author].photoCount += 1;
         });
 
-        // 점수 기준 내림차순 정렬
         const sortedAuthors = Object.keys(authorPoints).map(name => ({
             name: name,
             totalScore: authorPoints[name].totalScore,
@@ -872,7 +870,6 @@
         const inputPw = prompt("비밀번호를 입력하세요 (관리자는 마스터 암호 입력 가능):");
         if (inputPw === null) return;
 
-        // 🔑 관리자 권한 또는 사용자 비밀번호 검증
         if (inputPw !== item.password && inputPw !== MASTER_ADMIN_PW) {
             alert("비밀번호가 일치하지 않습니다.");
             return;
@@ -908,7 +905,6 @@
         const inputPw = prompt("비밀번호를 입력하세요 (관리자는 마스터 암호 입력 가능):");
         if (inputPw === null) return;
 
-        // 🔑 관리자 권한 또는 사용자 비밀번호 검증
         if (inputPw !== item.password && inputPw !== MASTER_ADMIN_PW) {
             alert("비밀번호가 일치하지 않습니다.");
             return;
@@ -940,9 +936,24 @@
             itemsToDisplay = itemsToDisplay.filter(item => item.year.includes(selectedYearFilter));
         }
 
-        // 실시간 점수(오래된 연도 + 좋아요)가 높은 순서대로 타임라인에 정렬
+        // 💡 [지층의 원리 반영 정렬]
+        // 1. 전체 연도 보기(selectedYearFilter === 'ALL')일 때는 지층을 파 내려가듯 최신이 위로, 오래된 과거가 아래로 가도록 정렬 (년도 오름차순/최신순)
+        // 2. 특정 연도를 지정했을 때는 해당 연도의 지층 순서대로 정렬
         itemsToDisplay.sort((a, b) => {
-            return calculateScore(b) - calculateScore(a);
+            const yearNumA = parseInt((a.year || "2026").replace(/[^0-9]/g, ''), 10);
+            const yearNumB = parseInt((b.year || "2026").replace(/[^0-9]/g, ''), 10);
+
+            if (selectedYearFilter === 'ALL') {
+                // 전체 보기: 최신 연도가 위로, 오래된 연도가 아래로 (지층 표면 $\rightarrow$ 땅속)
+                if (yearNumA !== yearNumB) {
+                    return yearNumB - yearNumA; 
+                }
+                // 연도가 같으면 최근 촬영/등록일 순
+                return (b.photoDate || "").localeCompare(a.photoDate || "");
+            } else {
+                // 특정 연도 탐색 시: 점수/좋아요 높은 순
+                return calculateScore(b) - calculateScore(a);
+            }
         });
 
         if (itemsToDisplay.length === 0) {
