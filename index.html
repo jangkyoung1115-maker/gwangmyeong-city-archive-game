@@ -27,7 +27,6 @@
 
         .header-right { display: flex; align-items: center; gap: 4px; }
 
-        /* 상단 버튼 축소 */
         .header-btn {
             background: linear-gradient(135deg, #f59e0b, #d97706); color: #000;
             border: none; padding: 3px 6px; border-radius: 6px; font-size: 0.65rem; font-weight: 800;
@@ -39,14 +38,12 @@
 
         #main-container { display: flex; flex-direction: column; height: calc(100vh - 44px); width: 100%; }
 
-        /* 상단 지도 영역 (더 넓게 확보) */
         #view-section {
             height: 44vh; min-height: 200px; width: 100%; position: relative; background: #181b22;
             border-bottom: 2px solid #2d323e; flex-shrink: 0;
         }
         #map { width: 100%; height: 100%; position: absolute; top: 0; left: 0; }
 
-        /* 지도 인포윈도우 */
         .info-card {
             background: #1c212b; color: #fff; padding: 8px; border-radius: 6px;
             box-shadow: 0 4px 12px rgba(0,0,0,0.5); width: 160px; text-align: center; font-size: 0.72rem;
@@ -55,12 +52,10 @@
         .info-card .info-title { font-weight: 800; color: #60a5fa; margin-bottom: 2px; }
         .info-card .info-date { font-size: 0.65rem; color: #9ca3af; }
 
-        /* 하단 메인 콘텐츠 영역 */
         #content-body {
             flex: 1; background: #14171d; display: flex; overflow: hidden; position: relative;
         }
 
-        /* ⏳ 지층탐색 패널 폭 50% 이상 축소 (기존 60px -> 30px) */
         #strata-drill-panel {
             width: 30px; background: linear-gradient(180deg, #1c212b 0%, #0d1117 100%);
             border-right: 1px solid #2d323e; display: flex; flex-direction: column; align-items: center;
@@ -82,14 +77,10 @@
             padding: 2px 1px; border-radius: 4px; width: 100%; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
         }
 
-        /* 우측 타임라인 본문 영역 */
         #strata-main-content {
             flex: 1; display: flex; flex-direction: column; padding: 10px 12px; overflow-y: auto;
         }
 
-        .panel-header { display: none; } /* 헤더 텍스트 숨겨서 심플하게 유지 */
-
-        /* 라이브 경쟁 배너 절반으로 축소 */
         .battle-banner {
             background: linear-gradient(135deg, rgba(139, 92, 246, 0.15), rgba(37, 99, 235, 0.15));
             border: 1px solid rgba(139, 92, 246, 0.3); border-radius: 6px; padding: 5px 8px;
@@ -149,16 +140,8 @@
         .strata-img-wrap { position: relative; width: 100%; margin: 6px 0; border-radius: 6px; overflow: hidden; background: #0f1115; }
         .strata-img { width: 100%; max-height: 280px; object-fit: cover; display: block; cursor: pointer; }
 
-        /* AI 도슨트 박스 간소화 */
-        .ai-docent-box {
-            background: rgba(56, 189, 248, 0.06); border-left: 2px solid #38bdf8;
-            padding: 5px 8px; border-radius: 3px; font-size: 0.7rem; color: #cbd5e1;
-            margin-bottom: 6px; line-height: 1.3; font-style: italic;
-        }
+        .strata-desc { font-size: 0.75rem; color: #d1d5db; line-height: 1.4; margin-bottom: 6px; }
 
-        .strata-desc { font-size: 0.75rem; color: #d1d5db; line-height: 1.3; margin-bottom: 6px; }
-
-        /* 방명록 댓글 섹션 */
         .comment-section {
             background: #14171d; border: 1px solid #2d323e; border-radius: 4px;
             padding: 6px; margin-bottom: 6px;
@@ -190,7 +173,6 @@
 
         .empty-state { text-align: center; padding: 30px 10px; color: #6b7280; font-size: 0.78rem; }
 
-        /* 모달 스타일 */
         .custom-modal {
             display: none; position: fixed; top: 0; left: 0; width: 100vw; height: 100vh;
             background: rgba(15, 17, 21, 0.96); z-index: 1500; overflow-y: auto; padding: 16px;
@@ -216,7 +198,6 @@
         .gallery-info .g-sub { font-size: 0.65rem; color: #9ca3af; margin-bottom: 2px; }
         .gallery-info .g-score { font-size: 0.65rem; color: #34d399; font-weight: 700; }
 
-        /* 확대/축소 모달 */
         #img-modal {
             display: none; position: fixed; top: 0; left: 0; width: 100vw; height: 100vh;
             background: rgba(0,0,0,0.92); z-index: 2000; overflow: hidden; touch-action: none; user-select: none;
@@ -230,7 +211,6 @@
 
         .zoom-hint { position: absolute; bottom: 12px; left: 50%; transform: translateX(-50%); background: rgba(0, 0, 0, 0.7); color: #9ca3af; padding: 4px 10px; border-radius: 14px; font-size: 0.68rem; pointer-events: none; z-index: 2010; }
 
-        /* 로딩 오버레이 */
         #loading-overlay { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.7); z-index: 3000; flex-direction: column; align-items: center; justify-content: center; color: #fff; font-weight: 700; gap: 10px; font-size: 0.85rem; }
         .spinner { width: 32px; height: 32px; border: 3px solid rgba(255,255,255,0.2); border-top: 3px solid #60a5fa; border-radius: 50%; animation: spin 1s linear infinite; }
         @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
@@ -267,7 +247,6 @@
         <div id="map"></div>
     </div>
 
-    <!-- 좌측 슬림 세로형 지층탐색 패널 (폭 대폭 축소) -->
     <div id="content-body">
         <div id="strata-drill-panel">
             <div class="vertical-slider-wrap">
@@ -276,9 +255,7 @@
             <div class="drill-depth-indicator" id="slider-year-val" title="현재 연도">전체</div>
         </div>
 
-        <!-- 우측 타임라인 본문 -->
         <div id="strata-main-content">
-            <!-- 라이브 경쟁 배너 (축소 버전) -->
             <div class="battle-banner" id="battle-banner-box">
                 <div class="battle-info">
                     <div class="b-title" id="battle-top-dong">🔥 1위 동네: 로딩 중...</div>
@@ -307,7 +284,6 @@
     </div>
 </div>
 
-<!-- 📜 미스터리 지층 발굴 퀘스트 모달 -->
 <div id="quest-modal" class="custom-modal">
     <div class="modal-inner-box" style="border-color: #8b5cf6;">
         <div class="modal-header-row">
@@ -330,7 +306,6 @@
     </div>
 </div>
 
-<!-- 🏛️ 미술관 TOP 10 모달 -->
 <div id="museum-modal" class="custom-modal">
     <div class="modal-inner-box">
         <div class="modal-header-row">
@@ -342,7 +317,6 @@
     </div>
 </div>
 
-<!-- 🏆 시민 작가 포인트 랭킹 모달 -->
 <div id="rank-modal" class="custom-modal">
     <div class="modal-inner-box" style="border-color: #10b981;">
         <div class="modal-header-row">
@@ -354,7 +328,6 @@
     </div>
 </div>
 
-<!-- 확대/축소 모달 -->
 <div id="img-modal">
     <div class="modal-controls">
         <button class="zoom-btn" onclick="zoomIn()"><i class="fa-solid fa-magnifying-glass-plus"></i></button>
@@ -373,7 +346,6 @@
     <div id="loading-text">처리 중...</div>
 </div>
 
-<!-- 카카오 지도 API -->
 <script type="text/javascript" src="//dapi.kakao.com/v2/maps/sdk.js?appkey=Bd83a6ca29e1fbf4fa5da49d88125054&libraries=services"></script>
 
 <script>
@@ -399,7 +371,6 @@
     let currentLatLng = null;
 
     let userStrataStore = [];
-    let pendingUploadData = null;
     let activeQuestTag = null;
 
     const DECADE_STEPS = ['1970', '1980', '1990', '2000', '2010', '2020', 'ALL'];
@@ -414,6 +385,51 @@
         '학온동': { lat: 37.4325, lng: 126.8520, level: 4 },
         '옥길동': { lat: 37.4690, lng: 126.8380, level: 4 }
     };
+
+    const INITIAL_SAMPLE_RECORDS = [
+        {
+            id: 'sample_1',
+            title: '철산주공 저층 아파트 시절',
+            desc: '개발 초기 활기차던 철산동 주공단지 풍경입니다. 아이들이 골목에서 뛰어놀던 시절이 그립네요.',
+            year: '1985',
+            dong: '철산동',
+            author: '광명토박이',
+            imgUrl: 'https://images.unsplash.com/photo-1513694203232-719a280e022f?w=600',
+            lat: 37.4815,
+            lng: 126.8675,
+            likes: 12,
+            isQuest: true,
+            comments: [{ name: '시민A', text: '그때가 정말 정겨웠죠!' }]
+        },
+        {
+            id: 'sample_2',
+            title: '하안동 논밭과 초창기 개발',
+            desc: '아파트가 들어서기 전 한적했던 하안동 일대 모습. 온통 논밭이었던 기억이 납니다.',
+            year: '1992',
+            dong: '하안동',
+            author: '지층탐험가',
+            imgUrl: 'https://images.unsplash.com/photo-1500382017468-9049fed747ef?w=600',
+            lat: 37.4618,
+            lng: 126.8672,
+            likes: 8,
+            isQuest: false,
+            comments: []
+        },
+        {
+            id: 'sample_3',
+            title: 'KTX 광명역 개통 초기 일직동',
+            desc: '허허벌판이던 일직동에 역사가 들어서던 순간입니다. 지금과 너무 달라 감회가 새롭네요.',
+            year: '2004',
+            dong: '일직동',
+            author: '역사기록관',
+            imgUrl: 'https://images.unsplash.com/photo-1486406146926-c627a92ad1ab?w=600',
+            lat: 37.4208,
+            lng: 126.8831,
+            likes: 15,
+            isQuest: false,
+            comments: []
+        }
+    ];
 
     function showLoading(msg) {
         document.getElementById('loading-text').innerText = msg || "처리 중...";
@@ -442,12 +458,6 @@
         initModalZoomEvents();
     }
 
-    function generateAiDocent(item) {
-        const year = item.year || "과거";
-        const dong = item.dong || "광명시";
-        return `"${year}년의 풍경이 담긴 ${dong}의 시간 지층입니다."`;
-    }
-
     function getAuthorBadge(authorName, photoCount, totalScore) {
         if (totalScore >= 500 || photoCount >= 5) return "👑 명예 큐레이터";
         if (photoCount >= 3) return "✨ 타임슬립 마스터";
@@ -469,11 +479,21 @@
             snapshot.forEach(doc => {
                 userStrataStore.push({ id: doc.id, ...doc.data() });
             });
+            if (userStrataStore.length === 0) {
+                INITIAL_SAMPLE_RECORDS.forEach(sample => {
+                    db.collection("strata_records").doc(sample.id).set(sample).catch(e => console.log(e));
+                });
+                userStrataStore = [...INITIAL_SAMPLE_RECORDS];
+            }
             updateDongBattleBanner();
             updateMapMarkers();
             renderStrataTimeline();
         }, error => {
-            console.error("Firebase 오류:", error);
+            console.error("Firebase 오류, 샘플 데이터로 대체:", error);
+            userStrataStore = [...INITIAL_SAMPLE_RECORDS];
+            updateDongBattleBanner();
+            updateMapMarkers();
+            renderStrataTimeline();
         });
     }
 
@@ -595,10 +615,11 @@
             return matchD && matchDec;
         });
 
+        // 최신 시간순이 위로, 오래된 순서가 아래로 오도록 내림차순(yb - ya) 정렬
         filtered.sort((a, b) => {
             const ya = parseInt((a.year || "2026").replace(/[^0-9]/g, ''), 10) || 2026;
             const yb = parseInt((b.year || "2026").replace(/[^0-9]/g, ''), 10) || 2026;
-            return ya - yb;
+            return yb - ya;
         });
 
         if (filtered.length === 0) {
@@ -607,7 +628,6 @@
         }
 
         filtered.forEach(item => {
-            const aiDocentText = generateAiDocent(item);
             const authorRecords = userStrataStore.filter(s => s.author === item.author);
             const badgeTitle = getAuthorBadge(item.author, authorRecords.length, authorRecords.reduce((acc, cur) => acc + calculateScore(cur), 0));
 
@@ -629,12 +649,8 @@
                     <span class="badge-tag">${badgeTitle}</span>
                     ${item.isQuest ? '<span class="badge-tag" style="background:rgba(139,92,246,0.2); border-color:#8b5cf6; color:#c084fc;">퀘스트</span>' : ''}
                 </div>
-                
-                <div class="ai-docent-box">
-                    <i>🤖</i> ${aiDocentText}
-                </div>
 
-                <div class="strata-desc"><b>${item.title || ''}</b> ${item.desc ? '- ' + item.desc : ''}</div>
+                <div class="strata-desc"><b>${item.title || ''}</b>${item.desc ? '<br>' + item.desc : ''}</div>
 
                 <div class="strata-img-wrap">
                     <img src="${item.imgUrl}" class="strata-img" alt="지층 기록 사진" onclick="openModal('${item.imgUrl}')">
@@ -669,7 +685,7 @@
 
         EXIF.getData(file, function() {
             const dateTime = EXIF.getTag(this, "DateTimeOriginal");
-            let extractedYear = "1990";
+            let extractedYear = "2026";
             if (dateTime) {
                 const yearPart = dateTime.split(/[:\s]/)[0];
                 if (yearPart && yearPart.length === 4) extractedYear = yearPart;
@@ -688,7 +704,7 @@
                 const titleInput = prompt("사진 제목이나 장소명을 입력해주세요:", "광명 추억의 풍경");
                 if (titleInput === null) return;
 
-                const descInput = prompt("간단한 에피소드를 적어주세요:", "");
+                const descInput = prompt("사진에 얽힌 설명이나 에피소드를 적어주세요:", "");
                 const authorInput = prompt("작가(닉네임)를 입력해주세요:", "광명토박이");
 
                 showLoading("등록 중...");
