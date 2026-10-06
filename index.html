@@ -44,6 +44,27 @@
         }
         #map { width: 100%; height: 100%; position: absolute; top: 0; left: 0; }
 
+        /* 거리뷰 모드 토글 버튼 스타일 */
+        .roadview-btn {
+            position: absolute; top: 12px; left: 12px; z-index: 10;
+            background: #1c212b; border: 1px solid #374151; color: #fff;
+            padding: 5px 9px; border-radius: 6px; font-size: 0.7rem; font-weight: 700;
+            cursor: pointer; box-shadow: 0 2px 6px rgba(0,0,0,0.4); display: flex; align-items: center; gap: 4px;
+        }
+        .roadview-btn:hover { background: #2563eb; border-color: #60a5fa; }
+
+        /* 거리뷰 전체화면 모달 */
+        #roadview-modal {
+            display: none; position: fixed; top: 0; left: 0; width: 100vw; height: 100vh;
+            background: rgba(0,0,0,0.92); z-index: 2500;
+        }
+        #roadview { width: 100%; height: 100%; }
+        .roadview-close {
+            position: absolute; top: 16px; right: 16px; z-index: 2600;
+            background: #ef4444; color: #fff; border: none; width: 36px; height: 36px;
+            border-radius: 50%; font-size: 1.1rem; cursor: pointer; display: flex; align-items: center; justify-content: center;
+        }
+
         .info-card {
             background: #1c212b; color: #fff; padding: 8px; border-radius: 6px;
             box-shadow: 0 4px 12px rgba(0,0,0,0.5); width: 160px; text-align: center; font-size: 0.72rem;
@@ -247,6 +268,10 @@
 <div id="main-container">
     <div id="view-section">
         <div id="map"></div>
+        <!-- 거리뷰(로드뷰) 전환 버튼 -->
+        <button class="roadview-btn" onclick="toggleRoadviewMode()">
+            <i class="fa-solid fa-street-view"></i> 거리뷰 모드
+        </button>
     </div>
 
     <div id="content-body">
@@ -284,6 +309,12 @@
             <div class="strata-timeline" id="strata-list"></div>
         </div>
     </div>
+</div>
+
+<!-- 거리뷰(로드뷰) 모달 화면 -->
+<div id="roadview-modal">
+    <button class="roadview-close" onclick="closeRoadviewModal()">&times;</button>
+    <div id="roadview"></div>
 </div>
 
 <div id="quest-modal" class="custom-modal">
@@ -364,6 +395,7 @@
     const db = firebase.firestore();
 
     let map, geocoder;
+    let roadview, roadviewClient;
     let markersOnMap = [];
     let activeInfoWindow = null;
     let selectedDong = 'ALL';
@@ -457,8 +489,30 @@
         geocoder = new kakao.maps.services.Geocoder();
         currentLatLng = new kakao.maps.LatLng(defaultPos.lat, defaultPos.lng);
 
+        // 카카오 로드뷰 및 컨트롤러 초기화
+        roadview = new kakao.maps.Roadview(document.getElementById('roadview'));
+        roadviewClient = new kakao.maps.RoadviewClient();
+        const roadviewControl = new kakao.maps.RoadviewControl();
+        map.addControl(roadviewControl, kakao.maps.ControlPosition.TOPRIGHT);
+
         initFirebaseRealtimeSync();
         initModalZoomEvents();
+    }
+
+    function toggleRoadviewMode() {
+        const centerPos = map.getCenter();
+        roadviewClient.getNearestPanoId(centerPos, 50, function(panoId) {
+            if (panoId) {
+                document.getElementById('roadview-modal').style.display = 'block';
+                roadview.setPanoId(panoId, centerPos);
+            } else {
+                alert("이 위치 근처에는 지원되는 거리뷰(로드뷰) 데이터가 없습니다.");
+            }
+        });
+    }
+
+    function closeRoadviewModal() {
+        document.getElementById('roadview-modal').style.display = 'none';
     }
 
     function getAuthorBadge(authorName, photoCount, totalScore) {
@@ -827,12 +881,10 @@
         });
     }
 
-    // 유저 직접 수정 기능 (등록 시 설정한 비밀번호 검증)
     function editRecord(id, authorName, savedPassword, oldTitle, oldDesc, oldYear) {
         const inputPw = prompt(`[${authorName}] 님의 기록을 수정하려면 비밀번호를 입력하세요:`);
         if (inputPw === null) return;
 
-        // 비밀번호가 없거나(샘플 데이터 등) 일치하는 경우
         if (!savedPassword || inputPw === savedPassword) {
             const newTitle = prompt("새로운 제목을 입력하세요:", oldTitle);
             if (newTitle === null) return;
@@ -855,7 +907,6 @@
         }
     }
 
-    // 유저 직접 삭제 기능 (등록 시 설정한 비밀번호 검증)
     function deleteRecord(id, savedPassword) {
         const inputPw = prompt("기록을 삭제하려면 등록 시 설정한 비밀번호를 입력하세요:");
         if (inputPw === null) return;
