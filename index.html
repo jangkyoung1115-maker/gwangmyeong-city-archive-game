@@ -218,7 +218,7 @@
         @media(max-width: 500px) { .compare-grid { grid-template-columns: 1fr; } }
         .compare-pane { background: #14171d; border: 1px solid #2d323e; border-radius: 10px; padding: 10px; text-align: center; }
         .compare-pane h4 { font-size: 0.85rem; color: #60a5fa; margin-bottom: 8px; display: flex; align-items: center; justify-content: center; gap: 5px; }
-        .compare-img-box { width: 100%; height: 180px; background: #000; border-radius: 6px; overflow: hidden; position: relative; }
+        .compare-img-box { width: 100%; height: 200px; background: #000; border-radius: 6px; overflow: hidden; position: relative; }
         .compare-img-box img, .compare-img-box div { width: 100%; height: 100%; object-fit: cover; }
         
         .postcard-dl-btn {
@@ -670,21 +670,27 @@
         const rvBox = document.getElementById('comp-roadview-box');
         rvBox.innerHTML = '';
         const tempDiv = document.createElement('div');
+        tempDiv.style.width = '100%';
+        tempDiv.style.height = '100%';
         rvBox.appendChild(tempDiv);
 
-        const targetPos = new kakao.maps.LatLng(item.lat, item.lng);
-        const subRv = new kakao.maps.Roadview(tempDiv);
-        const subClient = new kakao.maps.RoadviewClient();
-
-        subClient.getNearestPanoId(targetPos, 50, function(panoId) {
-            if (panoId) {
-                subRv.setPanoId(panoId, targetPos);
-            } else {
-                rvBox.innerHTML = '<div style="display:flex; align-items:center; justify-content:center; height:100%; color:#9ca3af; font-size:0.75rem; text-align:center; padding:10px;">이 위치 반경 내 로드뷰 데이터가 없습니다.</div>';
-            }
-        });
-
+        // 모달을 먼저 화면에 띄운 후 로드뷰 객체를 생성하고 relayout을 호출해야 까맣게 나오는 현상이 방지됩니다.
         document.getElementById('compare-modal').style.display = 'block';
+
+        setTimeout(() => {
+            const targetPos = new kakao.maps.LatLng(item.lat, item.lng);
+            const subRv = new kakao.maps.Roadview(tempDiv);
+            const subClient = new kakao.maps.RoadviewClient();
+
+            subClient.getNearestPanoId(targetPos, 50, function(panoId) {
+                if (panoId) {
+                    subRv.setPanoId(panoId, targetPos);
+                    setTimeout(() => { subRv.relayout(); }, 200);
+                } else {
+                    rvBox.innerHTML = '<div style="display:flex; align-items:center; justify-content:center; height:100%; color:#9ca3af; font-size:0.75rem; text-align:center; padding:10px;">이 위치 반경 내 로드뷰 데이터가 없습니다.</div>';
+                }
+            });
+        }, 100);
     }
 
     function closeCompareModal() {
