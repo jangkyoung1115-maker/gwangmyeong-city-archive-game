@@ -617,7 +617,6 @@
             return matchD && matchDec;
         });
 
-        // 최신 시간순이 위로 오도록 내림차순(yb - ya) 정렬
         filtered.sort((a, b) => {
             const ya = parseInt((a.year || "2026").replace(/[^0-9]/g, ''), 10) || 2026;
             const yb = parseInt((b.year || "2026").replace(/[^0-9]/g, ''), 10) || 2026;
@@ -686,7 +685,7 @@
         const file = event.target.files[0];
         if (!file) return;
 
-        showLoading("사진 압축 및 분석 중...");
+        showLoading("사진 분석 및 압축 중...");
 
         const reader = new FileReader();
         reader.onload = function(e) {
@@ -712,7 +711,7 @@
 
                 EXIF.getData(file, function() {
                     const dateTime = EXIF.getTag(this, "DateTimeOriginal");
-                    let extractedYear = "2026";
+                    let extractedYear = "";
                     if (dateTime) {
                         const yearPart = dateTime.split(/[:\s]/)[0];
                         if (yearPart && yearPart.length === 4) extractedYear = yearPart;
@@ -724,6 +723,18 @@
                     const lonRef = EXIF.getTag(this, "GPSLongitudeRef");
 
                     hideLoading();
+
+                    // 💡 EXIF 날짜 정보가 없거나 캡처본인 경우 사용자 직접 입력 유도
+                    let finalYear = extractedYear;
+                    if (!finalYear) {
+                        let userYearInput = prompt("사진에서 촬영 연도를 찾지 못했습니다. (또는 캡처본입니다)\n기록할 연도를 직접 입력해주세요 (예: 1995):", "2000");
+                        if (userYearInput === null) return;
+                        finalYear = userYearInput.trim() || "2026";
+                    } else {
+                        let confirmYear = prompt(`사진의 EXIF 메타데이터에서 연도 [${finalYear}]를 감정했습니다.\n수정하려면 변경하시고, 그대로 등록하려면 확인을 누르세요:`, finalYear);
+                        if (confirmYear === null) return;
+                        finalYear = confirmYear.trim() || finalYear;
+                    }
 
                     const titleInput = prompt("사진 제목이나 장소명을 입력해주세요:", "광명 추억의 풍경");
                     if (titleInput === null) return;
@@ -745,7 +756,7 @@
                     db.collection("strata_records").add({
                         title: titleInput || "추억의 사진",
                         desc: descInput || "",
-                        year: extractedYear,
+                        year: finalYear,
                         dong: determinedDong,
                         author: authorInput || "익명",
                         imgUrl: compressedDataUrl,
@@ -809,7 +820,6 @@
         });
     }
 
-    // 기록 수정 기능
     function editRecord(id, oldTitle, oldDesc, oldYear) {
         const pw = prompt("수정하려면 관리자 비밀번호를 입력하세요:");
         if (pw === MASTER_ADMIN_PW) {
@@ -834,7 +844,6 @@
         }
     }
 
-    // 기록 삭제 기능
     function deleteRecord(id) {
         const pw = prompt("삭제하려면 관리자 비밀번호를 입력하세요:");
         if (pw === MASTER_ADMIN_PW) {
