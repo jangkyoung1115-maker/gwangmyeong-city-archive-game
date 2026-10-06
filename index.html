@@ -42,27 +42,23 @@
             height: 44vh; min-height: 200px; width: 100%; position: relative; background: #181b22;
             border-bottom: 2px solid #2d323e; flex-shrink: 0;
         }
-        /* 지도와 로드뷰가 동일한 영역을 공유하도록 설정 */
         #map, #roadview { width: 100%; height: 100%; position: absolute; top: 0; left: 0; }
         #roadview { z-index: 5; display: none; }
 
-        /* 지도 내부 인라인 거리뷰 토글 버튼 */
-        .roadview-btn {
-            position: absolute; top: 12px; left: 12px; z-index: 10;
-            background: #1c212b; border: 1px solid #374151; color: #fff;
-            padding: 5px 9px; border-radius: 6px; font-size: 0.7rem; font-weight: 700;
-            cursor: pointer; box-shadow: 0 2px 6px rgba(0,0,0,0.4); display: flex; align-items: center; gap: 4px;
+        /* 지도 상단 작은 토글 스위치 버튼 스타일 */
+        .view-toggle-group {
+            position: absolute; top: 12px; left: 12px; z-index: 20;
+            background: #1c212b; border: 1px solid #374151; border-radius: 6px;
+            display: flex; padding: 2px; box-shadow: 0 2px 6px rgba(0,0,0,0.4);
         }
-        .roadview-btn:hover { background: #2563eb; border-color: #60a5fa; }
-
-        /* 로드뷰 화면 내부에서 지도로 돌아가는 닫기 버튼 */
-        .roadview-close {
-            position: absolute; top: 12px; right: 12px; z-index: 20;
-            background: rgba(239, 68, 68, 0.9); color: #fff; border: none;
-            padding: 6px 12px; border-radius: 6px; font-size: 0.75rem; font-weight: 700;
-            cursor: pointer; box-shadow: 0 2px 6px rgba(0,0,0,0.4); display: flex; align-items: center; gap: 4px;
+        .toggle-btn {
+            background: transparent; border: none; color: #9ca3af;
+            padding: 4px 10px; border-radius: 4px; font-size: 0.7rem; font-weight: 700;
+            cursor: pointer; display: flex; align-items: center; gap: 4px; transition: all 0.2s;
         }
-        .roadview-close:hover { background: #dc2626; }
+        .toggle-btn.active {
+            background: #2563eb; color: #fff; box-shadow: 0 1px 3px rgba(0,0,0,0.3);
+        }
 
         .info-card {
             background: #1c212b; color: #fff; padding: 8px; border-radius: 6px;
@@ -268,15 +264,17 @@
     <div id="view-section">
         <!-- 지도와 인라인 로드뷰 영역 -->
         <div id="map"></div>
-        <div id="roadview">
-            <button class="roadview-close" onclick="closeRoadviewMode()">
-                <i class="fa-solid fa-map"></i> 지도 보기
+        <div id="roadview"></div>
+
+        <!-- 지도 상단 작은 토글 스위치 -->
+        <div class="view-toggle-group">
+            <button id="btn-map-view" class="toggle-btn active" onclick="switchViewMode('map')">
+                <i class="fa-solid fa-map"></i> 지도
+            </button>
+            <button id="btn-road-view" class="toggle-btn" onclick="switchViewMode('road')">
+                <i class="fa-solid fa-street-view"></i> 거리뷰
             </button>
         </div>
-        <!-- 거리뷰 전환 버튼 -->
-        <button class="roadview-btn" onclick="toggleRoadviewMode()">
-            <i class="fa-solid fa-street-view"></i> 거리뷰 모드
-        </button>
     </div>
 
     <div id="content-body">
@@ -486,7 +484,7 @@
         geocoder = new kakao.maps.services.Geocoder();
         currentLatLng = new kakao.maps.LatLng(defaultPos.lat, defaultPos.lng);
 
-        // 지도 영역 내에서 전환되는 로드뷰 객체 초기화
+        // 로드뷰 및 컨트롤러 초기화
         roadview = new kakao.maps.Roadview(document.getElementById('roadview'));
         roadviewClient = new kakao.maps.RoadviewClient();
         const roadviewControl = new kakao.maps.RoadviewControl();
@@ -496,22 +494,34 @@
         initModalZoomEvents();
     }
 
-    function toggleRoadviewMode() {
-        const centerPos = map.getCenter();
-        roadviewClient.getNearestPanoId(centerPos, 50, function(panoId) {
-            if (panoId) {
-                document.getElementById('roadview').style.display = 'block';
-                roadview.setPanoId(panoId, centerPos);
-                roadview.relayout(); // 레이아웃 재조정
-            } else {
-                alert("이 위치 근처에는 지원되는 거리뷰(로드뷰) 데이터가 없습니다.");
-            }
-        });
-    }
+    // 지도 상단 토글 스위치 동작 함수
+    function switchViewMode(mode) {
+        const mapEl = document.getElementById('map');
+        const roadEl = document.getElementById('roadview');
+        const btnMap = document.getElementById('btn-map-view');
+        const btnRoad = document.getElementById('btn-road-view');
 
-    function closeRoadviewMode() {
-        document.getElementById('roadview').style.display = 'none';
-        map.relayout(); // 지도로 복귀 시 레이아웃 재조정
+        if (mode === 'map') {
+            roadEl.style.display = 'none';
+            mapEl.style.display = 'block';
+            btnMap.classList.add('active');
+            btnRoad.classList.remove('active');
+            map.relayout();
+        } else if (mode === 'road') {
+            const centerPos = map.getCenter();
+            roadviewClient.getNearestPanoId(centerPos, 50, function(panoId) {
+                if (panoId) {
+                    mapEl.style.display = 'none';
+                    roadEl.style.display = 'block';
+                    btnRoad.classList.add('active');
+                    btnMap.classList.remove('active');
+                    roadview.setPanoId(panoId, centerPos);
+                    roadview.relayout();
+                } else {
+                    alert("이 위치 근처에는 지원되는 거리뷰(로드뷰) 데이터가 없습니다.");
+                }
+            });
+        }
     }
 
     function getAuthorBadge(authorName, photoCount, totalScore) {
