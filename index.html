@@ -363,8 +363,6 @@
     firebase.initializeApp(firebaseConfig);
     const db = firebase.firestore();
 
-    const MASTER_ADMIN_PW = "admin1234";
-
     let map, geocoder;
     let markersOnMap = [];
     let activeInfoWindow = null;
@@ -396,6 +394,7 @@
             year: '1985',
             dong: '철산동',
             author: '광명토박이',
+            password: '1234',
             imgUrl: 'https://images.unsplash.com/photo-1513694203232-719a280e022f?w=600',
             lat: 37.4815,
             lng: 126.8675,
@@ -410,6 +409,7 @@
             year: '1992',
             dong: '하안동',
             author: '지층탐험가',
+            password: '1234',
             imgUrl: 'https://images.unsplash.com/photo-1500382017468-9049fed747ef?w=600',
             lat: 37.4618,
             lng: 126.8672,
@@ -424,6 +424,7 @@
             year: '2004',
             dong: '일직동',
             author: '역사기록관',
+            password: '1234',
             imgUrl: 'https://images.unsplash.com/photo-1486406146926-c627a92ad1ab?w=600',
             lat: 37.4208,
             lng: 126.8831,
@@ -617,6 +618,7 @@
             return matchD && matchDec;
         });
 
+        // 최신 시간순이 위로 오도록 내림차순(yb - ya) 정렬
         filtered.sort((a, b) => {
             const ya = parseInt((a.year || "2026").replace(/[^0-9]/g, ''), 10) || 2026;
             const yb = parseInt((b.year || "2026").replace(/[^0-9]/g, ''), 10) || 2026;
@@ -672,8 +674,8 @@
                         <i class="fa-solid fa-heart"></i> <span id="like-count-${item.id}">${item.likes || 0}</span>
                     </button>
                     <div class="card-actions">
-                        <button class="act-btn" onclick="editRecord('${item.id}', '${item.title || ''}', '${item.desc || ''}', '${item.year || ''}')">수정</button>
-                        <button class="act-btn del" onclick="deleteRecord('${item.id}')">삭제</button>
+                        <button class="act-btn" onclick="editRecord('${item.id}', '${item.author || ''}', '${item.password || ''}', '${item.title || ''}', '${item.desc || ''}', '${item.year || ''}')">수정</button>
+                        <button class="act-btn del" onclick="deleteRecord('${item.id}', '${item.password || ''}')">삭제</button>
                     </div>
                 </div>
             `;
@@ -724,14 +726,14 @@
 
                     hideLoading();
 
-                    // 💡 EXIF 날짜 정보가 없거나 캡처본인 경우 사용자 직접 입력 유도
+                    // 촬영 연도 확인 및 미감지/캡처본 직접 입력 처리
                     let finalYear = extractedYear;
                     if (!finalYear) {
-                        let userYearInput = prompt("사진에서 촬영 연도를 찾지 못했습니다. (또는 캡처본입니다)\n기록할 연도를 직접 입력해주세요 (예: 1995):", "2000");
+                        let userYearInput = prompt("사진에서 촬영 날짜(EXIF)를 찾지 못했거나 캡처본입니다.\n기록할 연도를 직접 입력해주세요 (예: 1995):", "2000");
                         if (userYearInput === null) return;
                         finalYear = userYearInput.trim() || "2026";
                     } else {
-                        let confirmYear = prompt(`사진의 EXIF 메타데이터에서 연도 [${finalYear}]를 감정했습니다.\n수정하려면 변경하시고, 그대로 등록하려면 확인을 누르세요:`, finalYear);
+                        let confirmYear = prompt(`사진의 EXIF 메타데이터에서 연도 [${finalYear}]를 감지했습니다.\n수정하려면 변경하시고, 그대로 등록하려면 확인을 누르세요:`, finalYear);
                         if (confirmYear === null) return;
                         finalYear = confirmYear.trim() || finalYear;
                     }
@@ -741,6 +743,10 @@
 
                     const descInput = prompt("사진에 얽힌 설명이나 에피소드를 적어주세요:", "");
                     const authorInput = prompt("작가(닉네임)를 입력해주세요:", "광명토박이");
+                    if (authorInput === null) return;
+
+                    const passwordInput = prompt("수정/삭제 시 사용할 비밀번호를 입력해주세요:", "1234");
+                    if (passwordInput === null) return;
 
                     showLoading("데이터베이스에 저장 중...");
 
@@ -759,6 +765,7 @@
                         year: finalYear,
                         dong: determinedDong,
                         author: authorInput || "익명",
+                        password: passwordInput || "1234",
                         imgUrl: compressedDataUrl,
                         lat: targetLat,
                         lng: targetLng,
@@ -820,9 +827,13 @@
         });
     }
 
-    function editRecord(id, oldTitle, oldDesc, oldYear) {
-        const pw = prompt("수정하려면 관리자 비밀번호를 입력하세요:");
-        if (pw === MASTER_ADMIN_PW) {
+    // 유저 직접 수정 기능 (등록 시 설정한 비밀번호 검증)
+    function editRecord(id, authorName, savedPassword, oldTitle, oldDesc, oldYear) {
+        const inputPw = prompt(`[${authorName}] 님의 기록을 수정하려면 비밀번호를 입력하세요:`);
+        if (inputPw === null) return;
+
+        // 비밀번호가 없거나(샘플 데이터 등) 일치하는 경우
+        if (!savedPassword || inputPw === savedPassword) {
             const newTitle = prompt("새로운 제목을 입력하세요:", oldTitle);
             if (newTitle === null) return;
             const newDesc = prompt("새로운 설명을 입력하세요:", oldDesc);
@@ -839,18 +850,23 @@
             }).catch(err => {
                 alert("수정 오류: " + err.message);
             });
-        } else if (pw !== null) {
+        } else {
             alert("비밀번호가 일치하지 않습니다.");
         }
     }
 
-    function deleteRecord(id) {
-        const pw = prompt("삭제하려면 관리자 비밀번호를 입력하세요:");
-        if (pw === MASTER_ADMIN_PW) {
+    // 유저 직접 삭제 기능 (등록 시 설정한 비밀번호 검증)
+    function deleteRecord(id, savedPassword) {
+        const inputPw = prompt("기록을 삭제하려면 등록 시 설정한 비밀번호를 입력하세요:");
+        if (inputPw === null) return;
+
+        if (!savedPassword || inputPw === savedPassword) {
             db.collection("strata_records").doc(id).delete().then(() => {
                 alert("기록이 삭제되었습니다.");
+            }).catch(err => {
+                alert("삭제 오류: " + err.message);
             });
-        } else if (pw !== null) {
+        } else {
             alert("비밀번호가 일치하지 않습니다.");
         }
     }
