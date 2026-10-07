@@ -45,19 +45,14 @@
         #map, #roadview { width: 100%; height: 100%; position: absolute; top: 0; left: 0; }
         #roadview { z-index: 5; display: none; }
 
-        .view-toggle-group {
-            position: absolute; top: 12px; left: 12px; z-index: 20;
-            background: #1c212b; border: 1px solid #374151; border-radius: 6px;
-            display: flex; padding: 2px; box-shadow: 0 2px 6px rgba(0,0,0,0.4);
+        /* 로드뷰 화면 내부에서 지도로 돌아가는 닫기 버튼 */
+        .roadview-close {
+            position: absolute; top: 12px; right: 12px; z-index: 20;
+            background: rgba(239, 68, 68, 0.9); color: #fff; border: none;
+            padding: 6px 12px; border-radius: 6px; font-size: 0.75rem; font-weight: 700;
+            cursor: pointer; box-shadow: 0 2px 6px rgba(0,0,0,0.4); display: flex; align-items: center; gap: 4px;
         }
-        .toggle-btn {
-            background: transparent; border: none; color: #9ca3af;
-            padding: 4px 10px; border-radius: 4px; font-size: 0.7rem; font-weight: 700;
-            cursor: pointer; display: flex; align-items: center; gap: 4px; transition: all 0.2s;
-        }
-        .toggle-btn.active {
-            background: #2563eb; color: #fff; box-shadow: 0 1px 3px rgba(0,0,0,0.3);
-        }
+        .roadview-close:hover { background: #dc2626; }
 
         #location-pick-banner {
             position: absolute; bottom: 12px; left: 50%; transform: translateX(-50%);
@@ -75,8 +70,8 @@
         .info-card .info-title { font-weight: 800; color: #60a5fa; margin-bottom: 2px; }
         .info-card .info-date { font-size: 0.65rem; color: #9ca3af; margin-bottom: 6px; }
         .info-card-btn {
-            background: #2563eb; color: #fff; border: none; padding: 3px 8px; border-radius: 4px;
-            font-size: 0.65rem; font-weight: 700; cursor: pointer; width: 100%;
+            background: #2563eb; color: #fff; border: none; padding: 4px 8px; border-radius: 4px;
+            font-size: 0.68rem; font-weight: 700; cursor: pointer; width: 100%; display: flex; align-items: center; justify-content: center; gap: 4px;
         }
         .info-card-btn:hover { background: #1d4ed8; }
 
@@ -275,14 +270,9 @@
 <div id="main-container">
     <div id="view-section">
         <div id="map"></div>
-        <div id="roadview"></div>
-
-        <div class="view-toggle-group">
-            <button id="btn-map-view" class="toggle-btn active" onclick="switchViewMode('map')">
-                <i class="fa-solid fa-map"></i> 지도
-            </button>
-            <button id="btn-road-view" class="toggle-btn" onclick="switchViewMode('road')">
-                <i class="fa-solid fa-street-view"></i> 거리뷰
+        <div id="roadview">
+            <button class="roadview-close" onclick="closeRoadviewMode()">
+                <i class="fa-solid fa-map"></i> 지도 보기
             </button>
         </div>
 
@@ -410,7 +400,6 @@
     let selectedDong = 'ALL';
     let selectedDecadeFilter = 'ALL';
     let currentLatLng = null;
-    let targetRoadviewLatLng = null; // 💡 마커가 품고 있는 정확한 위치 좌표 저장용 변수
 
     let userStrataStore = [];
     let activeQuestTag = null;
@@ -500,7 +489,6 @@
 
         geocoder = new kakao.maps.services.Geocoder();
         currentLatLng = new kakao.maps.LatLng(defaultPos.lat, defaultPos.lng);
-        targetRoadviewLatLng = currentLatLng; // 초기값 설정
 
         kakao.maps.event.addListener(map, 'center_changed', function() {
             currentLatLng = map.getCenter();
@@ -542,44 +530,26 @@
         initModalZoomEvents();
     }
 
-    // 💡 정보 카드 내에서 '이 장소 거리뷰 보기'를 눌렀을 때 호출되는 함수
+    // 마커 카드에서 특정 장소의 거리뷰를 열 때
     function openRoadviewAt(lat, lng) {
         const targetPos = new kakao.maps.LatLng(lat, lng);
-        targetRoadviewLatLng = targetPos; // 해당 좌표 기억
-        switchViewMode('road'); // 거리뷰 모드로 전환
+        roadviewClient.getNearestPanoId(targetPos, 50, function(panoId) {
+            if (panoId) {
+                document.getElementById('map').style.display = 'none';
+                document.getElementById('roadview').style.display = 'block';
+                roadview.setPanoId(panoId, targetPos);
+                roadview.relayout();
+            } else {
+                alert("이 위치 근처에는 지원되는 거리뷰(로드뷰) 데이터가 없습니다.");
+            }
+        });
     }
 
-    function switchViewMode(mode) {
-        const mapEl = document.getElementById('map');
-        const roadEl = document.getElementById('roadview');
-        const btnMap = document.getElementById('btn-map-view');
-        const btnRoad = document.getElementById('btn-road-view');
-
-        if (mode === 'map') {
-            roadEl.style.display = 'none';
-            mapEl.style.display = 'block';
-            btnMap.classList.add('active');
-            btnRoad.classList.remove('active');
-            map.relayout();
-        } else if (mode === 'road') {
-            // 💡 기억된 마커 좌표 또는 현재 지도 중심 좌표 사용
-            const queryPos = targetRoadviewLatLng || map.getCenter();
-            
-            roadviewClient.getNearestPanoId(queryPos, 50, function(panoId) {
-                if (panoId) {
-                    mapEl.style.display = 'none';
-                    roadEl.style.display = 'block';
-                    btnRoad.classList.add('active');
-                    btnMap.classList.remove('active');
-                    roadview.setPanoId(panoId, queryPos);
-                    roadview.relayout();
-                } else {
-                    alert("이 위치 근처에는 지원되는 거리뷰(로드뷰) 데이터가 없습니다.");
-                    // 데이터가 없으면 다시 지도로 복귀
-                    switchViewMode('map');
-                }
-            });
-        }
+    // 로드뷰 화면 내부에서 지도로 돌아가기
+    function closeRoadviewMode() {
+        document.getElementById('roadview').style.display = 'none';
+        document.getElementById('map').style.display = 'block';
+        map.relayout();
     }
 
     function getAuthorBadge(authorName, photoCount, totalScore) {
@@ -663,7 +633,6 @@
         map.panTo(moveLatLng);
         map.setLevel(targetPos.level);
         currentLatLng = moveLatLng;
-        targetRoadviewLatLng = moveLatLng;
 
         renderStrataTimeline();
         updateMapMarkers();
@@ -710,9 +679,6 @@
 
             kakao.maps.event.addListener(marker, 'click', () => {
                 if (activeInfoWindow) activeInfoWindow.close();
-
-                // 💡 마커를 클릭했을 때 해당 좌표를 기억
-                targetRoadviewLatLng = markerPos;
 
                 const content = `
                     <div class="info-card">
