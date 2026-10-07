@@ -18,6 +18,37 @@
         * { box-sizing: border-box; margin: 0; padding: 0; font-family: 'Pretendard', sans-serif; }
         html, body { width: 100%; height: 100%; background-color: #0f1115; color: #f3f4f6; overflow: hidden; }
 
+        /* 인트로 오버레이 스크린 스타일 */
+        #intro-screen {
+            position: fixed; top: 0; left: 0; width: 100vw; height: 100vh;
+            background: radial-gradient(circle at center, #1c212b 0%, #090a0f 100%);
+            z-index: 10000; display: flex; flex-direction: column; align-items: center; justify-content: center;
+            padding: 24px; text-align: center; animation: fadeIn 0.8s ease-out;
+        }
+        .intro-content-box {
+            max-width: 600px; width: 100%; background: rgba(28, 33, 43, 0.85);
+            border: 1px solid rgba(96, 165, 250, 0.3); border-radius: 16px; padding: 32px 24px;
+            box-shadow: 0 12px 40px rgba(0,0,0,0.7); backdrop-filter: blur(10px);
+        }
+        .intro-book-icon { font-size: 2.8rem; color: #f59e0b; margin-bottom: 14px; animation: floatIcon 3s ease-in-out infinite; }
+        @keyframes floatIcon { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-8px); } }
+
+        .intro-title { font-size: 1.25rem; font-weight: 800; color: #60a5fa; margin-bottom: 6px; letter-spacing: -0.5px; }
+        .intro-subtitle { font-size: 0.82rem; color: #9ca3af; margin-bottom: 20px; font-weight: 600; }
+        
+        .intro-story-text {
+            font-size: 0.82rem; color: #d1d5db; line-height: 1.6; margin-bottom: 24px;
+            background: rgba(15, 17, 21, 0.6); padding: 16px; border-radius: 8px; border-left: 3px solid #f59e0b;
+            text-align: left;
+        }
+        .intro-enter-btn {
+            background: linear-gradient(135deg, #3b82f6, #2563eb); color: #fff; border: none;
+            padding: 12px 28px; border-radius: 30px; font-size: 0.9rem; font-weight: 800; cursor: pointer;
+            box-shadow: 0 4px 15px rgba(37, 99, 235, 0.4); transition: all 0.2s ease;
+            display: inline-flex; align-items: center; gap: 8px;
+        }
+        .intro-enter-btn:hover { transform: scale(1.05); opacity: 0.95; }
+
         header {
             height: 44px; background: #181b22; border-bottom: 1px solid #2d323e;
             display: flex; align-items: center; justify-content: space-between; padding: 0 12px; z-index: 100;
@@ -250,6 +281,28 @@
 </head>
 <body>
 
+<!-- 인트로 오프닝 화면 -->
+<div id="intro-screen">
+    <div class="intro-content-box">
+        <div class="intro-book-icon"><i class="fa-solid fa-book-bookmark"></i></div>
+        <div class="intro-title">광명시 시간의 지층 아카이브</div>
+        <div class="intro-subtitle">고고학자 장은의 기록 발굴 프로젝트</div>
+        
+        <div class="intro-story-text">
+            "지상에는 번쩍이는 네온사인이 흐르고, 우리가 딛고 선 이 땅이 어디서 비롯되었는지 아무도 기억하지 못하는 수백 년 후의 미래.<br><br>
+            포크레인이 밀어버린 흙더미 속에서 한 권의 낡은 책을 발견했다.<br>
+            표지에는 <b>『빛나고 밝은』</b>이라는 우리말 이름이 적혀 있었다.<br><br>
+            하지만 책의 중반부턴 페이지가 찢겨 나가 하얗게 지워져 있었다.<br>
+            철산동의 옛 골목, 하안동의 논밭... 미래의 개발 속에 지워진 그 조각들은 책의 힘만으로는 채워질 수 없었다.<br><br>
+            <i>'기억은 땅에 묻히지 않는다. 잃어버린 빛과 밝음을 되찾아 줄 그대여, 저 땅의 지층 속에서 우리들의 진짜 얼굴을 발굴해 다오.'</i>"
+        </div>
+
+        <button class="intro-enter-btn" onclick="closeIntroScreen()">
+            <i class="fa-solid fa-compass-drafting"></i> 기억의 지층으로 입장하기
+        </button>
+    </div>
+</div>
+
 <header>
     <div class="logo">
         <i class="fa-solid fa-layer-group"></i>
@@ -478,6 +531,17 @@
         document.getElementById('loading-overlay').style.display = 'none';
     }
 
+    function closeIntroScreen() {
+        const intro = document.getElementById('intro-screen');
+        intro.style.transition = 'opacity 0.5s ease';
+        intro.style.opacity = '0';
+        setTimeout(() => {
+            intro.style.display = 'none';
+            // 인트로가 닫힌 후 지도 리사이즈 보정
+            if (map) map.relayout();
+        }, 500);
+    }
+
     window.onload = function() {
         initMap();
     };
@@ -542,7 +606,6 @@
             if (panoId) {
                 document.getElementById('map').style.display = 'none';
                 document.getElementById('roadview').style.display = 'block';
-                // 독립 닫기 버튼 활성화 (display: flex)
                 document.getElementById('roadview-close-btn').style.display = 'flex';
                 
                 roadview.setPanoId(panoId, targetPos);
@@ -555,7 +618,6 @@
 
     function closeRoadviewMode() {
         document.getElementById('roadview').style.display = 'none';
-        // 독립 닫기 버튼 숨기기
         document.getElementById('roadview-close-btn').style.display = 'none';
         
         document.getElementById('map').style.display = 'block';
