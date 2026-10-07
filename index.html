@@ -18,56 +18,40 @@
         * { box-sizing: border-box; margin: 0; padding: 0; font-family: 'Pretendard', sans-serif; }
         html, body { width: 100%; height: 100%; background-color: #0f1115; color: #f3f4f6; overflow: hidden; }
 
-        /* 인트로 오버레이 스크린 스타일 (시네마틱 감성) */
+        /* 다중 장면 인트로 오버레이 스크린 */
         #intro-screen {
             position: fixed; top: 0; left: 0; width: 100vw; height: 100vh;
             background: radial-gradient(circle at center, #1c212b 0%, #050608 100%);
-            z-index: 10000; display: flex; flex-direction: column; align-items: center; justify-content: center;
-            padding: 24px; text-align: center; animation: fadeIn 1s ease-out;
+            z-index: 10000; display: flex; align-items: center; justify-content: center;
+            padding: 20px; text-align: center;
         }
-        .intro-content-box {
-            max-width: 600px; width: 100%; background: rgba(28, 33, 43, 0.9);
-            border: 1px solid rgba(245, 158, 11, 0.4); border-radius: 16px; padding: 32px 24px;
-            box-shadow: 0 16px 50px rgba(0,0,0,0.8); backdrop-filter: blur(12px);
-            position: relative; overflow: hidden;
+        .intro-slide-container {
+            max-width: 540px; width: 100%; background: rgba(28, 33, 43, 0.92);
+            border: 1px solid rgba(245, 158, 11, 0.35); border-radius: 16px; padding: 36px 28px;
+            box-shadow: 0 16px 50px rgba(0,0,0,0.85); backdrop-filter: blur(12px);
+            position: relative; min-height: 320px; display: flex; flex-direction: column; justify-content: space-between;
         }
-        
-        /* 책 빛나는 효과 애니메이션 */
-        .intro-book-icon { 
-            font-size: 3rem; color: #f59e0b; margin-bottom: 14px; 
-            animation: pulseGlow 2.5s ease-in-out infinite; 
-            text-shadow: 0 0 20px rgba(245, 158, 11, 0.6);
-        }
-        @keyframes pulseGlow { 
-            0%, 100% { transform: scale(1); filter: drop-shadow(0 0 5px rgba(245,158,11,0.4)); } 
-            50% { transform: scale(1.08); filter: drop-shadow(0 0 15px rgba(245,158,11,0.8)); } 
-        }
+        .intro-scene { display: none; opacity: 0; transition: opacity 0.5s ease; flex-direction: column; align-items: center; justify-content: center; flex: 1; }
+        .intro-scene.active { display: flex; opacity: 1; }
 
-        .intro-title { font-size: 1.3rem; font-weight: 800; color: #60a5fa; margin-bottom: 6px; letter-spacing: -0.5px; }
-        .intro-subtitle { font-size: 0.82rem; color: #9ca3af; margin-bottom: 18px; font-weight: 600; }
-        
-        /* 내레이션 타이핑 텍스트 영역 */
-        .intro-story-text {
-            font-size: 0.82rem; color: #e5e7eb; line-height: 1.7; margin-bottom: 24px;
-            background: rgba(15, 17, 21, 0.75); padding: 18px; border-radius: 8px; border-left: 3px solid #f59e0b;
-            text-align: left; min-height: 140px; display: flex; align-items: center;
-        }
+        .scene-icon { font-size: 2.8rem; color: #f59e0b; margin-bottom: 16px; animation: floatIcon 3s ease-in-out infinite; }
+        @keyframes floatIcon { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-6px); } }
 
-        .intro-btn-group { display: flex; gap: 10px; justify-content: center; }
-        .intro-enter-btn {
+        .scene-title { font-size: 1.15rem; font-weight: 800; color: #60a5fa; margin-bottom: 12px; letter-spacing: -0.5px; }
+        .scene-desc { font-size: 0.85rem; color: #d1d5db; line-height: 1.7; word-break: keep-all; }
+
+        /* 인트로 하단 네비게이션 및 인디케이터 */
+        .intro-footer { display: flex; justify-content: space-between; align-items: center; margin-top: 24px; border-top: 1px solid rgba(255,255,255,0.1); padding-top: 16px; }
+        .intro-dots { display: flex; gap: 6px; }
+        .dot { width: 8px; height: 8px; border-radius: 50%; background: #374151; transition: background 0.3s; }
+        .dot.active { background: #f59e0b; width: 20px; border-radius: 4px; }
+
+        .intro-nav-btn {
             background: linear-gradient(135deg, #3b82f6, #2563eb); color: #fff; border: none;
-            padding: 12px 28px; border-radius: 30px; font-size: 0.9rem; font-weight: 800; cursor: pointer;
-            box-shadow: 0 4px 15px rgba(37, 99, 235, 0.4); transition: all 0.2s ease;
-            display: inline-flex; align-items: center; gap: 8px;
+            padding: 8px 18px; border-radius: 20px; font-size: 0.78rem; font-weight: 800; cursor: pointer;
+            box-shadow: 0 4px 12px rgba(37, 99, 235, 0.4); transition: all 0.2s ease;
         }
-        .intro-enter-btn:hover { transform: scale(1.05); opacity: 0.95; }
-        
-        .intro-sound-btn {
-            background: rgba(255, 255, 255, 0.1); color: #d1d5db; border: 1px solid rgba(255, 255, 255, 0.2);
-            padding: 12px 16px; border-radius: 30px; font-size: 0.85rem; font-weight: 700; cursor: pointer;
-            transition: all 0.2s ease; display: inline-flex; align-items: center; gap: 6px;
-        }
-        .intro-sound-btn:hover { background: rgba(255, 255, 255, 0.2); color: #fff; }
+        .intro-nav-btn:hover { transform: scale(1.05); }
 
         header {
             height: 44px; background: #181b22; border-bottom: 1px solid #2d323e;
@@ -96,7 +80,7 @@
         #map, #roadview { width: 100%; height: 100%; position: absolute; top: 0; left: 0; }
         #roadview { z-index: 5; display: none; }
 
-        /* 거리뷰 모드 닫기 버튼 */
+        /* 거리뷰 모드 닫기 버튼 (축소형) */
         #roadview-close-btn {
             position: absolute; top: 12px; right: 12px; z-index: 9999;
             width: 28px; height: 28px; background: rgba(15, 17, 21, 0.85); color: #fff; border: 1.5px solid #3b82f6;
@@ -301,24 +285,46 @@
 </head>
 <body>
 
-<!-- 인트로 오프닝 화면 (애니메이션 및 내레이션 탑재) -->
+<!-- 3장면 분할 다중 씬 인트로 화면 -->
 <div id="intro-screen">
-    <div class="intro-content-box">
-        <div class="intro-book-icon"><i class="fa-solid fa-book-bookmark"></i></div>
-        <div class="intro-title">광명시 시간의 지층 아카이브</div>
-        <div class="intro-subtitle">고고학자 장은의 기록 발굴 프로젝트</div>
-        
-        <div class="intro-story-text" id="typing-text-box">
-            내레이션을 준비 중입니다...
+    <div class="intro-slide-container">
+        <!-- Scene 1 -->
+        <div class="intro-scene active" id="scene-1">
+            <div class="scene-icon"><i class="fa-solid fa-city"></i></div>
+            <div class="scene-title">사라져가는 기억의 도시</div>
+            <div class="scene-desc">
+                지상에는 번쩍이는 네온사인이 흐르고, 우리가 딛고 선 이 땅이 어디서 비롯되었는지 아무도 기억하지 못하는 수백 년 후의 미래. 포크레인이 차가운 흙더미를 밀어내고 있습니다.
+            </div>
         </div>
 
-        <div class="intro-btn-group">
-            <button class="intro-sound-btn" onclick="playNarration()">
-                <i class="fa-solid fa-volume-high"></i> 내레이션 듣기
-            </button>
-            <button class="intro-enter-btn" onclick="closeIntroScreen()">
-                <i class="fa-solid fa-compass-drafting"></i> 입장하기
-            </button>
+        <!-- Scene 2 -->
+        <div class="intro-scene" id="scene-2">
+            <div class="scene-icon"><i class="fa-solid fa-book-bookmark"></i></div>
+            <div class="scene-title">고고학자 장은의 발견</div>
+            <div class="scene-desc">
+                깊은 지층 속에서 우연히 발견된 한 권의 낡은 책.<br>
+                표지에는 <b>『빛나고 밝은』</b>이라는 우리말 이름이 적혀 있었지만, 중반 이후의 페이지는 개발의 손길 속에 하얗게 지워져 있었습니다.
+            </div>
+        </div>
+
+        <!-- Scene 3 -->
+        <div class="intro-scene" id="scene-3">
+            <div class="scene-icon"><i class="fa-solid fa-hands-holding-child"></i></div>
+            <div class="scene-title">기억의 조각을 찾는 여정</div>
+            <div class="scene-desc">
+                <i>"기억은 땅에 묻히지 않는다. 잃어버린 빛과 밝음을 되찾아 줄 그대여, 저 땅의 지층 속에서 우리들의 진짜 얼굴을 발굴해 다오."</i><br><br>
+                당신의 서랍 속 추억이 광명의 심장을 다시 뛰게 합니다.
+            </div>
+        </div>
+
+        <!-- 인트로 하단 컨트롤 (인디케이터 및 버튼) -->
+        <div class="intro-footer">
+            <div class="intro-dots">
+                <div class="dot active" id="dot-1"></div>
+                <div class="dot" id="dot-2"></div>
+                <div class="dot" id="dot-3"></div>
+            </div>
+            <button class="intro-nav-btn" id="intro-next-btn" onclick="nextIntroScene()">다음 장면 &rarr;</button>
         </div>
     </div>
 </div>
@@ -346,6 +352,7 @@
         <div id="map"></div>
         <div id="roadview"></div>
         
+        <!-- 거리뷰 모드 시 축소된 닫기 버튼 -->
         <button id="roadview-close-btn" onclick="closeRoadviewMode()" title="지도로 돌아가기">
             &times;
         </button>
@@ -480,6 +487,36 @@
     let pendingUploadData = null;
     let tempPickMarker = null;
 
+    let currentIntroScene = 1;
+    const totalIntroScenes = 3;
+
+    function nextIntroScene() {
+        // 현재 장면 숨기기
+        document.getElementById(`scene-${currentIntroScene}`).classList.remove('active');
+        document.getElementById(`dot-${currentIntroScene}`).classList.remove('active');
+
+        currentIntroScene++;
+
+        if (currentIntroScene <= totalIntroScenes) {
+            // 다음 장면 보이기
+            document.getElementById(`scene-${currentIntroScene}`).classList.add('active');
+            document.getElementById(`dot-${currentIntroScene}`).classList.add('active');
+
+            if (currentIntroScene === totalIntroScenes) {
+                document.getElementById('intro-next-btn').innerText = "기억 발굴 시작하기 ✨";
+            }
+        } else {
+            // 인트로 종료 후 메인 진입
+            const intro = document.getElementById('intro-screen');
+            intro.style.transition = 'opacity 0.6s ease';
+            intro.style.opacity = '0';
+            setTimeout(() => {
+                intro.style.display = 'none';
+                if (map) map.relayout();
+            }, 600);
+        }
+    }
+
     const DECADE_STEPS = ['1970', '1980', '1990', '2000', '2010', '2020', 'ALL'];
 
     const DONG_COORDS = {
@@ -541,70 +578,18 @@
         }
     ];
 
-    const narrationScript = 
-        "지상에는 번쩍이는 네온사인이 흐르고, 우리가 딛고 선 이 땅이 어디서 비롯되었는지 아무도 기억하지 못하는 수백 년 후의 미래. " +
-        "포크레인이 밀어버린 흙더미 속에서 한 권의 낡은 책을 발견했다. 표지에는 '빛나고 밝은'이라는 우리말 이름이 적혀 있었다. " +
-        "하지만 책의 중반부턴 페이지가 찢겨 나가 하얗게 지워져 있었다. " +
-        "철산동의 옛 골목, 하안동의 논밭... 미래의 개발 속에 지워진 그 조각들은 책의 힘만으로는 채워질 수 없었다. " +
-        "기억은 땅에 묻히지 않는다. 잃어버린 빛과 밝음을 되찾아 줄 그대여, 저 땅의 지층 속에서 우리들의 진짜 얼굴을 발굴해 다오.";
+    function showLoading(msg) {
+        document.getElementById('loading-text').innerText = msg || "처리 중...";
+        document.getElementById('loading-overlay').style.display = 'flex';
+    }
 
-    let typingIdx = 0;
-    let typingTimer = null;
+    function hideLoading() {
+        document.getElementById('loading-overlay').style.display = 'none';
+    }
 
     window.onload = function() {
         initMap();
-        startTypingIntro();
     };
-
-    function startTypingIntro() {
-        const textBox = document.getElementById('typing-text-box');
-        textBox.innerText = "";
-        typingIdx = 0;
-
-        // 자동 내레이션 및 타이핑 시작
-        playNarration();
-
-        function typeNext() {
-            if (typingIdx < narrationScript.length) {
-                textBox.innerText += narrationScript.charAt(typingIdx);
-                typingIdx++;
-                typingTimer = setTimeout(typeNext, 35); // 타이핑 속도 조절
-            }
-        }
-        typeNext();
-    }
-
-    function playNarration() {
-        if (!('speechSynthesis' in window)) {
-            console.log("이 브라우저는 음성 합성을 지원하지 않습니다.");
-            return;
-        }
-
-        // 기존 재생 중인 음성 중지
-        window.speechSynthesis.cancel();
-
-        const utterance = new SpeechSynthesisUtterance(narrationScript);
-        utterance.lang = 'ko-KR';
-        utterance.rate = 0.95; // 약간 차분하고 진지한 속도
-        utterance.pitch = 0.9;  // 고고학자의 무게감 있는 톤
-        window.speechSynthesis.speak(utterance);
-    }
-
-    function closeIntroScreen() {
-        // 내레이션 중지
-        if ('speechSynthesis' in window) {
-            window.speechSynthesis.cancel();
-        }
-        if (typingTimer) clearTimeout(typingTimer);
-
-        const intro = document.getElementById('intro-screen');
-        intro.style.transition = 'opacity 0.6s ease';
-        intro.style.opacity = '0';
-        setTimeout(() => {
-            intro.style.display = 'none';
-            if (map) map.relayout();
-        }, 600);
-    }
 
     function initMap() {
         const container = document.getElementById('map');
