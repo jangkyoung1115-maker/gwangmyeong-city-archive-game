@@ -476,6 +476,10 @@
         document.getElementById('loading-overlay').style.display = 'none';
     }
 
+    window.onload = function() {
+        initMap();
+    };
+
     function initMap() {
         const container = document.getElementById('map');
         const defaultPos = DONG_COORDS['ALL'];
@@ -530,7 +534,6 @@
         initModalZoomEvents();
     }
 
-    // 마커 카드에서 특정 장소의 거리뷰를 열 때
     function openRoadviewAt(lat, lng) {
         const targetPos = new kakao.maps.LatLng(lat, lng);
         roadviewClient.getNearestPanoId(targetPos, 50, function(panoId) {
@@ -545,7 +548,6 @@
         });
     }
 
-    // 로드뷰 화면 내부에서 지도로 돌아가기
     function closeRoadviewMode() {
         document.getElementById('roadview').style.display = 'none';
         document.getElementById('map').style.display = 'block';
@@ -680,22 +682,22 @@
             kakao.maps.event.addListener(marker, 'click', () => {
                 if (activeInfoWindow) activeInfoWindow.close();
 
-                const content = `
+                const contentHTML = `
                     <div class="info-card">
-                        <img src="${item.imgUrl}" alt="지층 사진">
-                        <div class="info-title">${item.year}년 - ${item.dong}</div>
-                        <div class="info-date">${item.title || '추억의 장소'}</div>
+                        <img src="${item.imgUrl}" alt="지층 이미지">
+                        <div class="info-title">${item.title}</div>
+                        <div class="info-date">${item.year}년 · ${item.dong}</div>
                         <button class="info-card-btn" onclick="openRoadviewAt(${item.lat}, ${item.lng})">
-                            <i class="fa-solid fa-street-view"></i> 이 장소 거리뷰 보기
+                            <i class="fa-solid fa-street-view"></i> 거리뷰 보기
                         </button>
                     </div>
                 `;
-                const infowindow = new kakao.maps.InfoWindow({
-                    content: content,
+                const infoWindow = new kakao.maps.InfoWindow({
+                    content: contentHTML,
                     removable: true
                 });
-                infowindow.open(map, marker);
-                activeInfoWindow = infowindow;
+                infoWindow.open(map, marker);
+                activeInfoWindow = infoWindow;
             });
 
             markersOnMap.push(marker);
@@ -703,8 +705,8 @@
     }
 
     function renderStrataTimeline() {
-        const listEl = document.getElementById('strata-list');
-        listEl.innerHTML = '';
+        const listContainer = document.getElementById('strata-list');
+        listContainer.innerHTML = '';
 
         const filtered = userStrataStore.filter(item => {
             const matchD = (selectedDong === 'ALL' || item.dong === selectedDong);
@@ -712,67 +714,66 @@
             return matchD && matchDec;
         });
 
-        filtered.sort((a, b) => {
-            const ya = parseInt((a.year || "2026").replace(/[^0-9]/g, ''), 10) || 2026;
-            const yb = parseInt((b.year || "2026").replace(/[^0-9]/g, ''), 10) || 2026;
-            return yb - ya;
-        });
-
         if (filtered.length === 0) {
-            listEl.innerHTML = `<div class="empty-state">등록된 기록이 없습니다. 사진을 올려보세요!</div>`;
+            listContainer.innerHTML = `<div class="empty-state">해당 조건에 등록된 지층 기록이 없습니다. <br>첫 번째 기억을 남겨보세요!</div>`;
             return;
         }
 
+        filtered.sort((a, b) => parseInt((b.year||'0').replace(/[^0-9]/g,'')) - parseInt((a.year||'0').replace(/[^0-9]/g,'')));
+
         filtered.forEach(item => {
-            const authorRecords = userStrataStore.filter(s => s.author === item.author);
-            const badgeTitle = getAuthorBadge(item.author, authorRecords.length, authorRecords.reduce((acc, cur) => acc + calculateScore(cur), 0));
-
-            const comments = item.comments || [];
-            const commentHtml = comments.map(c => `
-                <div class="comment-item"><span>${c.name}:</span> ${c.text}</div>
-            `).join('');
-
             const card = document.createElement('div');
             card.className = 'strata-card';
+
+            const authorItems = userStrataStore.filter(x => x.author === item.author);
+            const authorCount = authorItems.length;
+            const authorTotalScore = authorItems.reduce((acc, cur) => acc + calculateScore(cur), 0);
+            const badgeStr = getAuthorBadge(item.author, authorCount, authorTotalScore);
+
+            const commentsArr = item.comments || [];
+            let commentsHtml = '';
+            commentsArr.forEach((c, idx) => {
+                commentsHtml += `<div class="comment-item"><span>${c.name}</span>${c.text}</div>`;
+            });
+
             card.innerHTML = `
                 <div class="strata-node"></div>
                 <div class="strata-header">
-                    <div class="strata-year"><i class="fa-solid fa-layer-group"></i> ${item.year || '미상'}년</div>
-                    <div class="dong-tag" onclick="filterDong('${item.dong}', null)">${item.dong || '광명시'}</div>
+                    <div class="strata-year"><i class="fa-solid fa-clock"></i> ${item.year}년</div>
+                    <div class="dong-tag" onclick="filterDong('${item.dong}')">${item.dong}</div>
                 </div>
                 <div class="author-row">
-                    <span class="strata-author">${item.author || '익명'}</span>
-                    <span class="badge-tag">${badgeTitle}</span>
-                    ${item.isQuest ? '<span class="badge-tag" style="background:rgba(139,92,246,0.2); border-color:#8b5cf6; color:#c084fc;">퀘스트</span>' : ''}
+                    <span class="strata-author"><i class="fa-solid fa-user-pen"></i> ${item.author}</span>
+                    <span class="badge-tag">${badgeStr}</span>
+                    ${item.isQuest ? '<span class="badge-tag" style="background:rgba(139,92,246,0.2);border-color:rgba(139,92,246,0.4);color:#c084fc;">⭐ 퀘스트</span>' : ''}
                 </div>
-
-                <div class="strata-desc"><b>${item.title || ''}</b>${item.desc ? '<br>' + item.desc : ''}</div>
-
                 <div class="strata-img-wrap">
-                    <img src="${item.imgUrl}" class="strata-img" alt="지층 기록 사진" onclick="openModal('${item.imgUrl}')">
+                    <img src="${item.imgUrl}" class="strata-img" alt="기록 사진" onclick="openModal('${item.imgUrl}')">
                 </div>
-
+                <div class="strata-desc"><b>${item.title}</b><br>${item.desc}</div>
+                
                 <div class="comment-section">
-                    <div class="comment-list">
-                        ${commentHtml || '<div style="color:#6b7280; font-size:0.65rem;">댓글이 없습니다. 첫 댓글을 남겨보세요!</div>'}
+                    <div class="comment-list" id="comment-list-${item.id}">
+                        ${commentsHtml || '<div style="color:#6b7280;font-size:0.65rem;">아직 댓글이 없습니다. 첫 의견을 남겨보세요!</div>'}
                     </div>
                     <div class="comment-input-row">
-                        <input type="text" class="comment-input" id="cmt-input-${item.id}" placeholder="한 마디..." onkeypress="if(event.key==='Enter') addComment('${item.id}')">
+                        <input type="text" class="comment-input" id="c-name-${item.id}" placeholder="이름" style="width:50px;">
+                        <input type="text" class="comment-input" id="c-text-${item.id}" placeholder="댓글 남기기...">
                         <button class="comment-submit-btn" onclick="addComment('${item.id}')">등록</button>
                     </div>
                 </div>
 
                 <div class="card-footer-row">
-                    <button class="like-btn" onclick="toggleLike('${item.id}')">
-                        <i class="fa-solid fa-heart"></i> <span id="like-count-${item.id}">${item.likes || 0}</span>
+                    <button class="like-btn" onclick="pressLike('${item.id}')">
+                        <i class="fa-solid fa-heart"></i> 공감 <span id="like-count-${item.id}">${item.likes || 0}</span>
                     </button>
                     <div class="card-actions">
-                        <button class="act-btn" onclick="editRecord('${item.id}', '${item.author || ''}', '${item.password || ''}', '${item.title || ''}', '${item.desc || ''}', '${item.year || ''}')">수정</button>
-                        <button class="act-btn del" onclick="deleteRecord('${item.id}', '${item.password || ''}')">삭제</button>
+                        <button class="act-btn" onclick="openRoadviewAt(${item.lat}, ${item.lng})"><i class="fa-solid fa-street-view"></i> 거리뷰</button>
+                        <button class="act-btn del" onclick="deleteRecord('${item.id}')"><i class="fa-solid fa-trash"></i> 삭제</button>
                     </div>
                 </div>
             `;
-            listEl.appendChild(card);
+            listContainer.appendChild(card);
         });
     }
 
@@ -780,309 +781,331 @@
         const file = event.target.files[0];
         if (!file) return;
 
-        showLoading("사진 분석 및 압축 중...");
+        showLoading("사진 EXIF 메타데이터 및 정보를 분석 중입니다...");
 
-        const reader = new FileReader();
-        reader.onload = function(e) {
-            const img = new Image();
-            img.onload = function() {
-                const canvas = document.createElement('canvas');
-                const MAX_WIDTH = 800;
-                const MAX_HEIGHT = 800;
-                let width = img.width;
-                let height = img.height;
+        EXIF.getData(file, function() {
+            let extractedYear = "2026";
+            let lat = null;
+            let lng = null;
 
-                if (width > height) {
-                    if (width > MAX_WIDTH) { height *= MAX_WIDTH / width; width = MAX_WIDTH; }
-                } else {
-                    if (height > MAX_HEIGHT) { width *= MAX_HEIGHT / height; height = MAX_HEIGHT; }
+            const dateTime = EXIF.getTag(this, "DateTimeOriginal");
+            if (dateTime) {
+                const yearPart = dateTime.split(/[:\s]/)[0];
+                if (yearPart && yearPart.length === 4) {
+                    extractedYear = yearPart;
                 }
+            }
 
-                canvas.width = width;
-                canvas.height = height;
-                const ctx = canvas.getContext('2d');
-                ctx.drawImage(img, 0, 0, width, height);
-                const compressedDataUrl = canvas.toDataURL('image/jpeg', 0.7);
+            const gpsLat = EXIF.getTag(this, "GPSLatitude");
+            const gpsLatRef = EXIF.getTag(this, "GPSLatitudeRef");
+            const gpsLng = EXIF.getTag(this, "GPSLongitude");
+            const gpsLngRef = EXIF.getTag(this, "GPSLongitudeRef");
 
-                EXIF.getData(file, function() {
-                    const dateTime = EXIF.getTag(this, "DateTimeOriginal");
-                    let extractedYear = "";
-                    if (dateTime) {
-                        const yearPart = dateTime.split(/[:\s]/)[0];
-                        if (yearPart && yearPart.length === 4) extractedYear = yearPart;
-                    }
+            if (gpsLat && gpsLng) {
+                lat = convertDMSToDD(gpsLat, gpsLatRef);
+                lng = convertDMSToDD(gpsLng, gpsLngRef);
+            }
 
-                    const latObj = EXIF.getTag(this, "GPSLatitude");
-                    const lonObj = EXIF.getTag(this, "GPSLongitude");
-                    const latRef = EXIF.getTag(this, "GPSLatitudeRef");
-                    const lonRef = EXIF.getTag(this, "GPSLongitudeRef");
-
-                    hideLoading();
-
-                    let finalYear = extractedYear;
-                    if (!finalYear) {
-                        let userYearInput = prompt("사진에서 촬영 날짜(EXIF)를 찾지 못했거나 캡처본입니다.\n기록할 연도를 직접 입력해주세요 (예: 1995):", "2000");
-                        if (userYearInput === null) return;
-                        finalYear = userYearInput.trim() || "2026";
-                    } else {
-                        let confirmYear = prompt(`사진의 EXIF 메타데이터에서 연도 [${finalYear}]를 감지했습니다.\n수정하려면 변경하시고, 그대로 등록하려면 확인을 누르세요:`, finalYear);
-                        if (confirmYear === null) return;
-                        finalYear = confirmYear.trim() || finalYear;
-                    }
-
-                    const titleInput = prompt("사진 제목이나 장소명을 입력해주세요:", "광명 추억의 풍경");
-                    if (titleInput === null) return;
-
-                    const descInput = prompt("사진에 얽힌 설명이나 에피소드를 적어주세요:", "");
-                    const authorInput = prompt("작가(닉네임)를 입력해주세요:", "광명토박이");
-                    if (authorInput === null) return;
-
-                    const passwordInput = prompt("수정/삭제 시 사용할 비밀번호를 입력해주세요:", "1234");
-                    if (passwordInput === null) return;
-
-                    const recordData = {
-                        title: titleInput || "추억의 사진",
-                        desc: descInput || "",
-                        year: finalYear,
-                        dong: selectedDong !== 'ALL' ? selectedDong : '철산동',
-                        author: authorInput || "익명",
-                        password: passwordInput || "1234",
-                        imgUrl: compressedDataUrl,
-                        likes: 0,
-                        isQuest: activeQuestTag !== null,
-                        questName: activeQuestTag || "",
-                        comments: [],
-                        createdAt: firebase.firestore.FieldValue.serverTimestamp()
-                    };
-
-                    if (latObj && lonObj) {
-                        const targetLat = convertDMSToDD(latObj, latRef);
-                        const targetLng = convertDMSToDD(lonObj, lonRef);
-                        saveRecordToFirestore(recordData, targetLat, targetLng);
-                    } else {
-                        pendingUploadData = recordData;
-                        document.getElementById('location-pick-banner').style.display = 'block';
-                        alert("사진에 위치(GPS) 정보가 없습니다.\n지도 화면에서 사진이 위치할 장소를 직접 클릭해주세요!");
-                    }
-                });
+            const reader = new FileReader();
+            reader.onload = function(e) {
+                hideLoading();
+                const base64Img = e.target.result;
+                promptUserUploadMetadata(base64Img, extractedYear, lat, lng);
             };
-            img.src = e.target.result;
-        };
-        reader.readAsDataURL(file);
-    }
-
-    function saveRecordToFirestore(recordData, lat, lng) {
-        showLoading("데이터베이스에 저장 중...");
-        recordData.lat = lat;
-        recordData.lng = lng;
-
-        db.collection("strata_records").add(recordData).then(() => {
-            hideLoading();
-            alert("성공적으로 등록되어 지도에 축적되었습니다!");
-            activeQuestTag = null;
-        }).catch(err => {
-            hideLoading();
-            alert("오류 발생: " + err.message);
+            reader.readAsDataURL(file);
         });
+        event.target.value = '';
     }
 
-    function convertDMSToDD(dms, ref) {
-        if (!dms) return 37.4815;
-        const degrees = dms[0].numerator / dms[0].denominator;
-        const minutes = dms[1].numerator / dms[1].denominator;
-        const seconds = dms[2].numerator / dms[2].denominator;
-        let dd = degrees + minutes / 60 + seconds / 3600;
+    function convertDMSToDD(coordinate, ref) {
+        const degrees = coordinate[0].numerator / coordinate[0].denominator;
+        const minutes = coordinate[1].numerator / coordinate[1].denominator;
+        const seconds = coordinate[2].numerator / coordinate[2].denominator;
+        let dd = degrees + minutes / 60 + seconds / (60 * 60);
         if (ref === "S" || ref === "W") dd = dd * -1;
         return dd;
     }
 
-    function toggleLike(id) {
+    function promptUserUploadMetadata(imgUrl, defaultYear, lat, lng) {
+        const title = prompt("추억 사진의 제목을 입력해주세요:", "광명시의 옛 추억");
+        if (!title) return;
+
+        const desc = prompt("사진에 얽힌 이야기를 남겨주세요:", "이곳의 옛날 모습입니다.");
+        const year = prompt("촬영된 연도를 입력해주세요 (예: 1985):", defaultYear || "1985");
+        
+        let dong = prompt("광명시 내 동 이름을 입력해주세요 (철산동, 하안동, 소하동, 광명동, 일직동, 학온동, 옥길동 중 하나):", "철산동");
+        if (!dong) dong = "철산동";
+
+        const author = prompt("작성자(시민 작가)명을 입력해주세요:", "광명시민");
+        if (!author) return;
+
+        const password = prompt("기록 삭제 및 관리를 위한 비밀번호(4자리)를 입력해주세요:", "1234");
+        if (!password) return;
+
+        const dataObj = {
+            title, desc, year, dong, author, password,
+            imgUrl,
+            likes: 0,
+            isQuest: activeQuestTag ? true : false,
+            comments: []
+        };
+        activeQuestTag = null;
+
+        if (lat && lng) {
+            if (confirm("사진에서 위치 정보(GPS)를 감지했습니다. 해당 위치에 등록하시겠습니까?")) {
+                saveRecordToFirestore(dataObj, lat, lng);
+                return;
+            }
+        }
+
+        pendingUploadData = dataObj;
+        alert("지도에서 사진이 위치할 장소를 클릭해주세요!");
+        document.getElementById('location-pick-banner').style.display = 'block';
+    }
+
+    function saveRecordToFirestore(dataObj, lat, lng) {
+        showLoading("지층에 새로운 기억을 기록하고 있습니다...");
+        dataObj.lat = lat;
+        dataObj.lng = lng;
+        dataObj.createdAt = Date.now();
+
+        const newId = 'record_' + Date.now();
+        db.collection("strata_records").doc(newId).set(dataObj)
+            .then(() => {
+                hideLoading();
+                alert("성공적으로 지층에 기록되었습니다!");
+                filterDong(dataObj.dong);
+            })
+            .catch(err => {
+                hideLoading();
+                alert("저장 중 오류가 발생했습니다: " + err.message);
+            });
+    }
+
+    function pressLike(id) {
         const docRef = db.collection("strata_records").doc(id);
         db.runTransaction(transaction => {
             return transaction.get(docRef).then(doc => {
-                if (!doc.exists) return;
+                if (!doc.exists) throw "문서가 존재하지 않습니다.";
                 const newLikes = (doc.data().likes || 0) + 1;
                 transaction.update(docRef, { likes: newLikes });
+                return newLikes;
             });
-        }).catch(err => console.error(err));
+        }).then(newLikes => {
+            const span = document.getElementById(`like-count-${id}`);
+            if (span) span.innerText = newLikes;
+            updateDongBattleBanner();
+        }).catch(err => console.log(err));
     }
 
     function addComment(id) {
-        const inputEl = document.getElementById(`cmt-input-${id}`);
-        const text = inputEl.value.trim();
-        if (!text) return;
+        const nameInput = document.getElementById(`c-name-${id}`);
+        const textInput = document.getElementById(`c-text-${id}`);
+        const name = nameInput.value.trim();
+        const text = textInput.value.trim();
 
-        const commenter = prompt("방명록 닉네임:", "방문객");
-        if (!commenter) return;
+        if (!name || !text) {
+            alert("이름과 댓글 내용을 모두 입력해주세요.");
+            return;
+        }
 
         const docRef = db.collection("strata_records").doc(id);
-        docRef.get().then(doc => {
-            if (!doc.exists) return;
-            const comments = doc.data().comments || [];
-            comments.push({ name: commenter, text: text, time: new Date().toISOString() });
-            docRef.update({ comments: comments }).then(() => { inputEl.value = ''; });
-        });
-    }
-
-    function editRecord(id, authorName, savedPassword, oldTitle, oldDesc, oldYear) {
-        const inputPw = prompt(`[${authorName}] 님의 기록을 수정하려면 비밀번호를 입력하세요:`);
-        if (inputPw === null) return;
-
-        if (!savedPassword || inputPw === savedPassword) {
-            const newTitle = prompt("새로운 제목을 입력하세요:", oldTitle);
-            if (newTitle === null) return;
-            const newDesc = prompt("새로운 설명을 입력하세요:", oldDesc);
-            if (newDesc === null) return;
-            const newYear = prompt("새로운 연도를 입력하세요 (예: 1990):", oldYear);
-            if (newYear === null) return;
-
-            db.collection("strata_records").doc(id).update({
-                title: newTitle,
-                desc: newDesc,
-                year: newYear
-            }).then(() => {
-                alert("기록이 수정되었습니다.");
-            }).catch(err => {
-                alert("수정 오류: " + err.message);
+        db.runTransaction(transaction => {
+            return transaction.get(docRef).then(doc => {
+                if (!doc.exists) throw "문서가 없습니다.";
+                const comments = doc.data().comments || [];
+                comments.push({ name, text });
+                transaction.update(docRef, { comments });
+                return comments;
             });
-        } else {
-            alert("비밀번호가 일치하지 않습니다.");
-        }
+        }).then(() => {
+            nameInput.value = '';
+            textInput.value = '';
+        }).catch(err => alert("댓글 저장 실패: " + err));
     }
 
-    function deleteRecord(id, savedPassword) {
-        const inputPw = prompt("기록을 삭제하려면 등록 시 설정한 비밀번호를 입력하세요:");
-        if (inputPw === null) return;
+    function deleteRecord(id) {
+        const pw = prompt("삭제를 위한 비밀번호를 입력해주세요:");
+        if (!pw) return;
 
-        if (!savedPassword || inputPw === savedPassword) {
-            db.collection("strata_records").doc(id).delete().then(() => {
+        const target = userStrataStore.find(x => x.id === id);
+        if (!target) return;
+
+        if (target.password && target.password !== pw) {
+            alert("비밀번호가 일치하지 않습니다.");
+            return;
+        }
+
+        showLoading("기록을 삭제하는 중...");
+        db.collection("strata_records").doc(id).delete()
+            .then(() => {
+                hideLoading();
                 alert("기록이 삭제되었습니다.");
-            }).catch(err => {
-                alert("삭제 오류: " + err.message);
+            })
+            .catch(err => {
+                hideLoading();
+                alert("삭제 실패: " + err.message);
             });
-        } else {
-            alert("비밀번호가 일치하지 않습니다.");
-        }
     }
 
     function openQuestModal() { document.getElementById('quest-modal').style.display = 'block'; }
     function closeQuestModal() { document.getElementById('quest-modal').style.display = 'none'; }
-
-    function startQuestUpload(dongName, questTitle) {
-        activeQuestTag = questTitle;
+    function startQuestUpload(dongName, questTitleHint) {
+        activeQuestTag = questTitleHint;
         closeQuestModal();
-        alert(`[${questTitle}] 퀘스트 모드 진입 (3배 가점)`);
         document.getElementById('file-input').click();
     }
 
     function openMuseumModal() {
         const modal = document.getElementById('museum-modal');
-        const listEl = document.getElementById('museum-gallery-list');
+        const container = document.getElementById('museum-gallery-list');
         modal.style.display = 'block';
 
-        let sorted = [...userStrataStore].sort((a, b) => calculateScore(b) - calculateScore(a));
-        let top10 = sorted.slice(0, 10);
+        const sorted = [...userStrataStore].sort((a, b) => (b.likes || 0) - (a.likes || 0)).slice(0, 10);
+        container.innerHTML = '';
 
-        if (top10.length === 0) {
-            listEl.innerHTML = `<div class="empty-state">등록된 작품이 없습니다.</div>`;
+        if (sorted.length === 0) {
+            container.innerHTML = `<div class="empty-state">등록된 작품이 없습니다.</div>`;
             return;
         }
 
-        listEl.innerHTML = top10.map((item, idx) => `
-            <div class="gallery-item">
-                <div class="gallery-rank ${idx < 3 ? 'top-three' : ''}">${idx + 1}</div>
-                <img src="${item.imgUrl}" class="gallery-img" alt="작품">
-                <div class="gallery-info">
-                    <div class="g-title">${item.title || '무제'} (${item.year || ''})</div>
-                    <div class="g-sub">📍 ${item.dong} | 작가: ${item.author}</div>
-                    <div class="g-score">점수: ${calculateScore(item)}점</div>
+        sorted.forEach((item, idx) => {
+            const rankClass = idx < 3 ? 'top-three' : '';
+            container.innerHTML += `
+                <div class="gallery-item">
+                    <div class="gallery-rank ${rankClass}">${idx + 1}</div>
+                    <img src="${item.imgUrl}" class="gallery-img" onclick="openModal('${item.imgUrl}')">
+                    <div class="gallery-info">
+                        <div class="g-title">${item.title}</div>
+                        <div class="g-sub">${item.year}년 · ${item.dong} · 작가: ${item.author}</div>
+                        <div class="g-score"><i class="fa-solid fa-heart" style="color:#f87171;"></i> 공감 ${item.likes || 0}개</div>
+                    </div>
                 </div>
-            </div>
-        `).join('');
+            `;
+        });
     }
     function closeMuseumModal() { document.getElementById('museum-modal').style.display = 'none'; }
 
     function openRankModal() {
         const modal = document.getElementById('rank-modal');
-        const listEl = document.getElementById('author-rank-list');
+        const container = document.getElementById('author-rank-list');
         modal.style.display = 'block';
 
         const authorMap = {};
         userStrataStore.forEach(item => {
-            const author = item.author || '익명';
-            if (!authorMap[author]) authorMap[author] = { score: 0, count: 0 };
-            authorMap[author].score += calculateScore(item);
-            authorMap[author].count += 1;
+            const auth = item.author || "익명";
+            if (!authorMap[auth]) {
+                authorMap[auth] = { count: 0, score: 0 };
+            }
+            authorMap[auth].count += 1;
+            authorMap[auth].score += calculateScore(item);
         });
 
-        let rankArr = Object.entries(authorMap).map(([name, data]) => ({
-            name, score: data.score, count: data.count, badge: getAuthorBadge(name, data.count, data.score)
-        })).sort((a, b) => b.score - a.score);
+        const authorArr = [];
+        for (const [name, info] of Object.entries(authorMap)) {
+            authorArr.push({ name, count: info.count, score: info.score, badge: getAuthorBadge(name, info.count, info.score) });
+        }
+        authorArr.sort((a, b) => b.score - a.score);
 
-        if (rankArr.length === 0) {
-            listEl.innerHTML = `<div class="empty-state">랭킹 데이터가 없습니다.</div>`;
+        container.innerHTML = '';
+        if (authorArr.length === 0) {
+            container.innerHTML = `<div class="empty-state">등록된 작가가 없습니다.</div>`;
             return;
         }
 
-        listEl.innerHTML = rankArr.map((authorObj, idx) => `
-            <div class="gallery-item">
-                <div class="gallery-rank ${idx < 3 ? 'top-three' : ''}">${idx + 1}</div>
-                <div class="gallery-info">
-                    <div class="g-title">${authorObj.name} <span class="badge-tag">${authorObj.badge}</span></div>
-                    <div class="g-sub">사진 ${authorObj.count}장 등록</div>
-                    <div class="g-score">포인트: ${authorObj.score}점</div>
+        authorArr.forEach((auth, idx) => {
+            const rankClass = idx < 3 ? 'top-three' : '';
+            container.innerHTML += `
+                <div class="gallery-item">
+                    <div class="gallery-rank ${rankClass}">${idx + 1}</div>
+                    <div class="gallery-info">
+                        <div class="g-title">${auth.name} <span style="font-size:0.65rem;color:#f59e0b;font-weight:normal;">(${auth.badge})</span></div>
+                        <div class="g-sub">기록 사진: ${auth.count}장</div>
+                        <div class="g-score">총 지층 점수: ${auth.score}점</div>
+                    </div>
                 </div>
-            </div>
-        `).join('');
+            `;
+        });
     }
     function closeRankModal() { document.getElementById('rank-modal').style.display = 'none'; }
 
     let currentScale = 1;
-    let pointX = 0, pointY = 0;
     let isDragging = false;
     let startX = 0, startY = 0;
+    let translateX = 0, translateY = 0;
 
-    function openModal(imgSrc) {
+    function openModal(imgUrl) {
         const modal = document.getElementById('img-modal');
         const img = document.getElementById('modal-img');
-        img.src = imgSrc;
-        modal.style.display = 'block';
+        img.src = imgUrl;
         resetZoom();
+        modal.style.display = 'block';
     }
 
-    function closeModal() { document.getElementById('img-modal').style.display = 'none'; }
-    function zoomIn() { currentScale = Math.min(currentScale + 0.5, 5); updateImageTransform(); }
-    function zoomOut() { currentScale = Math.max(currentScale - 0.5, 1); if(currentScale === 1) { pointX=0; pointY=0; } updateImageTransform(); }
-    function resetZoom() { currentScale = 1; pointX = 0; pointY = 0; updateImageTransform(); }
+    function closeModal() {
+        document.getElementById('img-modal').style.display = 'none';
+    }
+
+    function zoomIn() {
+        currentScale = Math.min(currentScale + 0.3, 4);
+        updateImageTransform();
+    }
+
+    function zoomOut() {
+        currentScale = Math.max(currentScale - 0.3, 1);
+        if (currentScale === 1) { translateX = 0; translateY = 0; }
+        updateImageTransform();
+    }
+
+    function resetZoom() {
+        currentScale = 1;
+        translateX = 0;
+        translateY = 0;
+        updateImageTransform();
+    }
 
     function updateImageTransform() {
         const img = document.getElementById('modal-img');
-        img.style.transform = `translate(${pointX}px, ${pointY}px) scale(${currentScale})`;
+        img.style.transform = `translate(${translateX}px, ${translateY}px) scale(${currentScale})`;
     }
 
     function initModalZoomEvents() {
         const viewport = document.getElementById('modal-viewport');
-        viewport.addEventListener('mousedown', (e) => {
+        const img = document.getElementById('modal-img');
+
+        viewport.addEventListener('wheel', function(e) {
+            e.preventDefault();
+            if (e.deltaY < 0) {
+                currentScale = Math.min(currentScale + 0.2, 4);
+            } else {
+                currentScale = Math.max(currentScale - 0.2, 1);
+                if (currentScale === 1) { translateX = 0; translateY = 0; }
+            }
+            updateImageTransform();
+        }, { passive: false });
+
+        viewport.addEventListener('mousedown', function(e) {
             if (currentScale > 1) {
                 isDragging = true;
-                startX = e.clientX - pointX;
-                startY = e.clientY - pointY;
+                startX = e.clientX - translateX;
+                startY = e.clientY - translateY;
+                viewport.style.cursor = 'grabbing';
             }
         });
-        window.addEventListener('mousemove', (e) => {
+
+        window.addEventListener('mousemove', function(e) {
             if (!isDragging) return;
-            pointX = e.clientX - startX;
-            pointY = e.clientY - startY;
+            translateX = e.clientX - startX;
+            translateY = e.clientY - startY;
             updateImageTransform();
         });
-        window.addEventListener('mouseup', () => { isDragging = false; });
-        viewport.addEventListener('wheel', (e) => {
-            e.preventDefault();
-            if (e.deltaY < 0) zoomIn(); else zoomOut();
-        }, { passive: false });
-    }
 
-    window.onload = initMap;
+        window.addEventListener('mouseup', function() {
+            isDragging = false;
+            viewport.style.cursor = 'grab';
+        });
+    }
 </script>
+
 </body>
 </html>
