@@ -59,7 +59,6 @@
             background: #2563eb; color: #fff; box-shadow: 0 1px 3px rgba(0,0,0,0.3);
         }
 
-        /* 위치 선택 모드 안내 배너 */
         #location-pick-banner {
             position: absolute; bottom: 12px; left: 50%; transform: translateX(-50%);
             background: rgba(245, 158, 11, 0.95); color: #000; padding: 6px 14px;
@@ -70,11 +69,16 @@
 
         .info-card {
             background: #1c212b; color: #fff; padding: 8px; border-radius: 6px;
-            box-shadow: 0 4px 12px rgba(0,0,0,0.5); width: 160px; text-align: center; font-size: 0.72rem;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.5); width: 180px; text-align: center; font-size: 0.72rem;
         }
         .info-card img { width: 100%; height: 80px; object-fit: cover; border-radius: 4px; margin-bottom: 4px; }
         .info-card .info-title { font-weight: 800; color: #60a5fa; margin-bottom: 2px; }
-        .info-card .info-date { font-size: 0.65rem; color: #9ca3af; }
+        .info-card .info-date { font-size: 0.65rem; color: #9ca3af; margin-bottom: 6px; }
+        .info-card-btn {
+            background: #2563eb; color: #fff; border: none; padding: 3px 8px; border-radius: 4px;
+            font-size: 0.65rem; font-weight: 700; cursor: pointer; width: 100%;
+        }
+        .info-card-btn:hover { background: #1d4ed8; }
 
         #content-body {
             flex: 1; background: #14171d; display: flex; overflow: hidden; position: relative;
@@ -282,7 +286,6 @@
             </button>
         </div>
 
-        <!-- GPS 없을 때 위치 지정 안내 배너 -->
         <div id="location-pick-banner">📍 지도를 클릭하여 사진이 위치할 장소를 지정해주세요!</div>
     </div>
 
@@ -333,7 +336,7 @@
         <div class="quest-card-item">
             <div class="quest-title">퀘스트 #1: 옛 철산주공 아파트 단지</div>
             <div class="quest-desc">80~90년대 철산주공 저층 아파트 시절 전경을 찾아 등록해주세요.</div>
-            <div class="quest-reward">🎁 보상: 타임슬립 마스터 뱃지 + 가점 3倍</div>
+            <div class="quest-reward">🎁 보상: 타임슬립 마스터 뱃지 + 가점 3배</div>
             <button class="quest-btn" onclick="startQuestUpload('철산동', '1980년대 철산주공 옛 모습')">도전하기</button>
         </div>
         <div class="quest-card-item">
@@ -407,11 +410,12 @@
     let selectedDong = 'ALL';
     let selectedDecadeFilter = 'ALL';
     let currentLatLng = null;
+    let targetRoadviewLatLng = null; // 💡 마커가 품고 있는 정확한 위치 좌표 저장용 변수
 
     let userStrataStore = [];
     let activeQuestTag = null;
-    let pendingUploadData = null; // GPS 없을 때 임시 저장할 사진 데이터
-    let tempPickMarker = null;   // 위치 지정용 마커
+    let pendingUploadData = null;
+    let tempPickMarker = null;
 
     const DECADE_STEPS = ['1970', '1980', '1990', '2000', '2010', '2020', 'ALL'];
 
@@ -496,18 +500,17 @@
 
         geocoder = new kakao.maps.services.Geocoder();
         currentLatLng = new kakao.maps.LatLng(defaultPos.lat, defaultPos.lng);
+        targetRoadviewLatLng = currentLatLng; // 초기값 설정
 
         kakao.maps.event.addListener(map, 'center_changed', function() {
             currentLatLng = map.getCenter();
         });
 
-        // 지도 클릭 이벤트 (GPS가 없을 때 직접 위치 지정용)
         kakao.maps.event.addListener(map, 'click', function(mouseEvent) {
-            if (!pendingUploadData) return; // 위치 지정 대기 중이 아닐 때는 무시
+            if (!pendingUploadData) return;
 
             const clickedLatLng = mouseEvent.latLng;
             
-            // 임시 마커 표시 또는 이동
             if (!tempPickMarker) {
                 tempPickMarker = new kakao.maps.Marker({
                     position: clickedLatLng,
@@ -539,6 +542,13 @@
         initModalZoomEvents();
     }
 
+    // 💡 정보 카드 내에서 '이 장소 거리뷰 보기'를 눌렀을 때 호출되는 함수
+    function openRoadviewAt(lat, lng) {
+        const targetPos = new kakao.maps.LatLng(lat, lng);
+        targetRoadviewLatLng = targetPos; // 해당 좌표 기억
+        switchViewMode('road'); // 거리뷰 모드로 전환
+    }
+
     function switchViewMode(mode) {
         const mapEl = document.getElementById('map');
         const roadEl = document.getElementById('roadview');
@@ -552,17 +562,21 @@
             btnRoad.classList.remove('active');
             map.relayout();
         } else if (mode === 'road') {
-            const centerPos = map.getCenter();
-            roadviewClient.getNearestPanoId(centerPos, 50, function(panoId) {
+            // 💡 기억된 마커 좌표 또는 현재 지도 중심 좌표 사용
+            const queryPos = targetRoadviewLatLng || map.getCenter();
+            
+            roadviewClient.getNearestPanoId(queryPos, 50, function(panoId) {
                 if (panoId) {
                     mapEl.style.display = 'none';
                     roadEl.style.display = 'block';
                     btnRoad.classList.add('active');
                     btnMap.classList.remove('active');
-                    roadview.setPanoId(panoId, centerPos);
+                    roadview.setPanoId(panoId, queryPos);
                     roadview.relayout();
                 } else {
                     alert("이 위치 근처에는 지원되는 거리뷰(로드뷰) 데이터가 없습니다.");
+                    // 데이터가 없으면 다시 지도로 복귀
+                    switchViewMode('map');
                 }
             });
         }
@@ -649,6 +663,7 @@
         map.panTo(moveLatLng);
         map.setLevel(targetPos.level);
         currentLatLng = moveLatLng;
+        targetRoadviewLatLng = moveLatLng;
 
         renderStrataTimeline();
         updateMapMarkers();
@@ -696,11 +711,17 @@
             kakao.maps.event.addListener(marker, 'click', () => {
                 if (activeInfoWindow) activeInfoWindow.close();
 
+                // 💡 마커를 클릭했을 때 해당 좌표를 기억
+                targetRoadviewLatLng = markerPos;
+
                 const content = `
                     <div class="info-card">
                         <img src="${item.imgUrl}" alt="지층 사진">
                         <div class="info-title">${item.year}년 - ${item.dong}</div>
                         <div class="info-date">${item.title || '추억의 장소'}</div>
+                        <button class="info-card-btn" onclick="openRoadviewAt(${item.lat}, ${item.lng})">
+                            <i class="fa-solid fa-street-view"></i> 이 장소 거리뷰 보기
+                        </button>
                     </div>
                 `;
                 const infowindow = new kakao.maps.InfoWindow({
@@ -868,7 +889,6 @@
                         createdAt: firebase.firestore.FieldValue.serverTimestamp()
                     };
 
-                    // GPS가 있으면 곧바로 저장, 없으면 사용자에게 지도 클릭 유도
                     if (latObj && lonObj) {
                         const targetLat = convertDMSToDD(latObj, latRef);
                         const targetLng = convertDMSToDD(lonObj, lonRef);
@@ -1022,7 +1042,6 @@
         modal.style.display = 'block';
 
         const authorMap = {};
-        userStrataStore.php.forEach(item => {}); // 안전장치
         userStrataStore.forEach(item => {
             const author = item.author || '익명';
             if (!authorMap[author]) authorMap[author] = { score: 0, count: 0 };
