@@ -18,29 +18,42 @@
         * { box-sizing: border-box; margin: 0; padding: 0; font-family: 'Pretendard', sans-serif; }
         html, body { width: 100%; height: 100%; background-color: #0f1115; color: #f3f4f6; overflow: hidden; }
 
-        /* 인트로 오버레이 스크린 스타일 */
+        /* 인트로 오버레이 스크린 스타일 (시네마틱 감성) */
         #intro-screen {
             position: fixed; top: 0; left: 0; width: 100vw; height: 100vh;
-            background: radial-gradient(circle at center, #1c212b 0%, #090a0f 100%);
+            background: radial-gradient(circle at center, #1c212b 0%, #050608 100%);
             z-index: 10000; display: flex; flex-direction: column; align-items: center; justify-content: center;
-            padding: 24px; text-align: center; animation: fadeIn 0.8s ease-out;
+            padding: 24px; text-align: center; animation: fadeIn 1s ease-out;
         }
         .intro-content-box {
-            max-width: 600px; width: 100%; background: rgba(28, 33, 43, 0.85);
-            border: 1px solid rgba(96, 165, 250, 0.3); border-radius: 16px; padding: 32px 24px;
-            box-shadow: 0 12px 40px rgba(0,0,0,0.7); backdrop-filter: blur(10px);
+            max-width: 600px; width: 100%; background: rgba(28, 33, 43, 0.9);
+            border: 1px solid rgba(245, 158, 11, 0.4); border-radius: 16px; padding: 32px 24px;
+            box-shadow: 0 16px 50px rgba(0,0,0,0.8); backdrop-filter: blur(12px);
+            position: relative; overflow: hidden;
         }
-        .intro-book-icon { font-size: 2.8rem; color: #f59e0b; margin-bottom: 14px; animation: floatIcon 3s ease-in-out infinite; }
-        @keyframes floatIcon { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-8px); } }
-
-        .intro-title { font-size: 1.25rem; font-weight: 800; color: #60a5fa; margin-bottom: 6px; letter-spacing: -0.5px; }
-        .intro-subtitle { font-size: 0.82rem; color: #9ca3af; margin-bottom: 20px; font-weight: 600; }
         
-        .intro-story-text {
-            font-size: 0.82rem; color: #d1d5db; line-height: 1.6; margin-bottom: 24px;
-            background: rgba(15, 17, 21, 0.6); padding: 16px; border-radius: 8px; border-left: 3px solid #f59e0b;
-            text-align: left;
+        /* 책 빛나는 효과 애니메이션 */
+        .intro-book-icon { 
+            font-size: 3rem; color: #f59e0b; margin-bottom: 14px; 
+            animation: pulseGlow 2.5s ease-in-out infinite; 
+            text-shadow: 0 0 20px rgba(245, 158, 11, 0.6);
         }
+        @keyframes pulseGlow { 
+            0%, 100% { transform: scale(1); filter: drop-shadow(0 0 5px rgba(245,158,11,0.4)); } 
+            50% { transform: scale(1.08); filter: drop-shadow(0 0 15px rgba(245,158,11,0.8)); } 
+        }
+
+        .intro-title { font-size: 1.3rem; font-weight: 800; color: #60a5fa; margin-bottom: 6px; letter-spacing: -0.5px; }
+        .intro-subtitle { font-size: 0.82rem; color: #9ca3af; margin-bottom: 18px; font-weight: 600; }
+        
+        /* 내레이션 타이핑 텍스트 영역 */
+        .intro-story-text {
+            font-size: 0.82rem; color: #e5e7eb; line-height: 1.7; margin-bottom: 24px;
+            background: rgba(15, 17, 21, 0.75); padding: 18px; border-radius: 8px; border-left: 3px solid #f59e0b;
+            text-align: left; min-height: 140px; display: flex; align-items: center;
+        }
+
+        .intro-btn-group { display: flex; gap: 10px; justify-content: center; }
         .intro-enter-btn {
             background: linear-gradient(135deg, #3b82f6, #2563eb); color: #fff; border: none;
             padding: 12px 28px; border-radius: 30px; font-size: 0.9rem; font-weight: 800; cursor: pointer;
@@ -48,6 +61,13 @@
             display: inline-flex; align-items: center; gap: 8px;
         }
         .intro-enter-btn:hover { transform: scale(1.05); opacity: 0.95; }
+        
+        .intro-sound-btn {
+            background: rgba(255, 255, 255, 0.1); color: #d1d5db; border: 1px solid rgba(255, 255, 255, 0.2);
+            padding: 12px 16px; border-radius: 30px; font-size: 0.85rem; font-weight: 700; cursor: pointer;
+            transition: all 0.2s ease; display: inline-flex; align-items: center; gap: 6px;
+        }
+        .intro-sound-btn:hover { background: rgba(255, 255, 255, 0.2); color: #fff; }
 
         header {
             height: 44px; background: #181b22; border-bottom: 1px solid #2d323e;
@@ -76,7 +96,7 @@
         #map, #roadview { width: 100%; height: 100%; position: absolute; top: 0; left: 0; }
         #roadview { z-index: 5; display: none; }
 
-        /* 거리뷰 모드 닫기 버튼 (크기를 아담하게 축소) */
+        /* 거리뷰 모드 닫기 버튼 */
         #roadview-close-btn {
             position: absolute; top: 12px; right: 12px; z-index: 9999;
             width: 28px; height: 28px; background: rgba(15, 17, 21, 0.85); color: #fff; border: 1.5px solid #3b82f6;
@@ -281,25 +301,25 @@
 </head>
 <body>
 
-<!-- 인트로 오프닝 화면 -->
+<!-- 인트로 오프닝 화면 (애니메이션 및 내레이션 탑재) -->
 <div id="intro-screen">
     <div class="intro-content-box">
         <div class="intro-book-icon"><i class="fa-solid fa-book-bookmark"></i></div>
         <div class="intro-title">광명시 시간의 지층 아카이브</div>
         <div class="intro-subtitle">고고학자 장은의 기록 발굴 프로젝트</div>
         
-        <div class="intro-story-text">
-            "지상에는 번쩍이는 네온사인이 흐르고, 우리가 딛고 선 이 땅이 어디서 비롯되었는지 아무도 기억하지 못하는 수백 년 후의 미래.<br><br>
-            포크레인이 밀어버린 흙더미 속에서 한 권의 낡은 책을 발견했다.<br>
-            표지에는 <b>『빛나고 밝은』</b>이라는 우리말 이름이 적혀 있었다.<br><br>
-            하지만 책의 중반부턴 페이지가 찢겨 나가 하얗게 지워져 있었다.<br>
-            철산동의 옛 골목, 하안동의 논밭... 미래의 개발 속에 지워진 그 조각들은 책의 힘만으로는 채워질 수 없었다.<br><br>
-            <i>'기억은 땅에 묻히지 않는다. 잃어버린 빛과 밝음을 되찾아 줄 그대여, 저 땅의 지층 속에서 우리들의 진짜 얼굴을 발굴해 다오.'</i>"
+        <div class="intro-story-text" id="typing-text-box">
+            내레이션을 준비 중입니다...
         </div>
 
-        <button class="intro-enter-btn" onclick="closeIntroScreen()">
-            <i class="fa-solid fa-compass-drafting"></i> 기억의 지층으로 입장하기
-        </button>
+        <div class="intro-btn-group">
+            <button class="intro-sound-btn" onclick="playNarration()">
+                <i class="fa-solid fa-volume-high"></i> 내레이션 듣기
+            </button>
+            <button class="intro-enter-btn" onclick="closeIntroScreen()">
+                <i class="fa-solid fa-compass-drafting"></i> 입장하기
+            </button>
+        </div>
     </div>
 </div>
 
@@ -326,7 +346,6 @@
         <div id="map"></div>
         <div id="roadview"></div>
         
-        <!-- 거리뷰 모드 시 축소된 닫기 버튼 -->
         <button id="roadview-close-btn" onclick="closeRoadviewMode()" title="지도로 돌아가기">
             &times;
         </button>
@@ -522,29 +541,70 @@
         }
     ];
 
-    function showLoading(msg) {
-        document.getElementById('loading-text').innerText = msg || "처리 중...";
-        document.getElementById('loading-overlay').style.display = 'flex';
-    }
+    const narrationScript = 
+        "지상에는 번쩍이는 네온사인이 흐르고, 우리가 딛고 선 이 땅이 어디서 비롯되었는지 아무도 기억하지 못하는 수백 년 후의 미래. " +
+        "포크레인이 밀어버린 흙더미 속에서 한 권의 낡은 책을 발견했다. 표지에는 '빛나고 밝은'이라는 우리말 이름이 적혀 있었다. " +
+        "하지만 책의 중반부턴 페이지가 찢겨 나가 하얗게 지워져 있었다. " +
+        "철산동의 옛 골목, 하안동의 논밭... 미래의 개발 속에 지워진 그 조각들은 책의 힘만으로는 채워질 수 없었다. " +
+        "기억은 땅에 묻히지 않는다. 잃어버린 빛과 밝음을 되찾아 줄 그대여, 저 땅의 지층 속에서 우리들의 진짜 얼굴을 발굴해 다오.";
 
-    function hideLoading() {
-        document.getElementById('loading-overlay').style.display = 'none';
-    }
-
-    function closeIntroScreen() {
-        const intro = document.getElementById('intro-screen');
-        intro.style.transition = 'opacity 0.5s ease';
-        intro.style.opacity = '0';
-        setTimeout(() => {
-            intro.style.display = 'none';
-            // 인트로가 닫힌 후 지도 리사이즈 보정
-            if (map) map.relayout();
-        }, 500);
-    }
+    let typingIdx = 0;
+    let typingTimer = null;
 
     window.onload = function() {
         initMap();
+        startTypingIntro();
     };
+
+    function startTypingIntro() {
+        const textBox = document.getElementById('typing-text-box');
+        textBox.innerText = "";
+        typingIdx = 0;
+
+        // 자동 내레이션 및 타이핑 시작
+        playNarration();
+
+        function typeNext() {
+            if (typingIdx < narrationScript.length) {
+                textBox.innerText += narrationScript.charAt(typingIdx);
+                typingIdx++;
+                typingTimer = setTimeout(typeNext, 35); // 타이핑 속도 조절
+            }
+        }
+        typeNext();
+    }
+
+    function playNarration() {
+        if (!('speechSynthesis' in window)) {
+            console.log("이 브라우저는 음성 합성을 지원하지 않습니다.");
+            return;
+        }
+
+        // 기존 재생 중인 음성 중지
+        window.speechSynthesis.cancel();
+
+        const utterance = new SpeechSynthesisUtterance(narrationScript);
+        utterance.lang = 'ko-KR';
+        utterance.rate = 0.95; // 약간 차분하고 진지한 속도
+        utterance.pitch = 0.9;  // 고고학자의 무게감 있는 톤
+        window.speechSynthesis.speak(utterance);
+    }
+
+    function closeIntroScreen() {
+        // 내레이션 중지
+        if ('speechSynthesis' in window) {
+            window.speechSynthesis.cancel();
+        }
+        if (typingTimer) clearTimeout(typingTimer);
+
+        const intro = document.getElementById('intro-screen');
+        intro.style.transition = 'opacity 0.6s ease';
+        intro.style.opacity = '0';
+        setTimeout(() => {
+            intro.style.display = 'none';
+            if (map) map.relayout();
+        }, 600);
+    }
 
     function initMap() {
         const container = document.getElementById('map');
@@ -802,7 +862,7 @@
 
             const commentsArr = item.comments || [];
             let commentsHtml = '';
-            commentsArr.forEach((c, idx) => {
+            commentsArr.forEach((c) => {
                 commentsHtml += `<div class="comment-item"><span>${c.name}</span>${c.text}</div>`;
             });
 
