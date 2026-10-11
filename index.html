@@ -713,7 +713,6 @@
         });
     }
 
-    /* EXIF 메타데이터 추출 및 메타 정보 입력 프로세스 */
     function handlePhotoSeedUpload(event) {
         const file = event.target.files[0];
         if (!file) return;
@@ -793,12 +792,11 @@
         document.getElementById('location-pick-banner').style.display = 'block';
     }
 
-    /* Firebase Storage에 원본 고화질 사진 업로드 후 Firestore에 데이터 저장 */
     function uploadImageToStorageAndSave(fileObj, dataObj, lat, lng) {
         showLoading("고화질 원본 사진을 클라우드 저장소에 업로드 중...");
 
         const fileExtension = fileObj.name.split('.').pop();
-        const fileName = `records_${Date.now()}_${Math.random().toString(36.substring(2, 8))}.${fileExtension}`;
+        const fileName = `records_${Date.now()}_${Math.random().toString(36).substring(2, 8)}.${fileExtension}`;
         const storageRef = storage.ref(`strata_images/${fileName}`);
 
         const uploadTask = storageRef.put(fileObj);
@@ -823,7 +821,7 @@
                         dong: dataObj.dong,
                         author: dataObj.author,
                         password: dataObj.password,
-                        imgUrl: downloadURL, // Storage 다운로드 원본 URL 저장
+                        imgUrl: downloadURL,
                         lat: lat,
                         lng: lng,
                         likes: dataObj.likes,
