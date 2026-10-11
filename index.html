@@ -264,7 +264,7 @@
             <div class="scene-icon"><i class="fa-solid fa-book-open"></i></div>
             <div class="scene-title">기록 보관소 활용법</div>
             <div class="scene-desc">
-                지도를 탐색하며 원본 사진을 등록하고, 연대별 슬라이더를 통해 시간의 흐름에 따른 변화를 살펴보세요.
+                사진을 올리면 촬영 날짜와 위치가 자동으로 인식되며, 연대별 슬라이더로 시간의 지층을 탐색할 수 있습니다.
             </div>
         </div>
 
@@ -292,7 +292,7 @@
         <i class="fa-solid fa-layer-group"></i>
         <span>광명시 시간의 지층</span>
     </div>
-    <div class="header-info">소모임 기록 아카이브</div>
+    <div class="header-info">도시기록가 아카이브</div>
 </header>
 
 <div id="main-container">
@@ -438,13 +438,13 @@
             desc: '개발 초기 활기차던 철산동 주공단지 풍경입니다. 아이들이 골목에서 뛰어놀던 시절이 그립네요.',
             year: '1985',
             dong: '철산동',
-            author: '연구원A',
+            author: '도시기록가 A',
             password: '1234',
             imgUrl: 'https://images.unsplash.com/photo-1513694203232-719a280e022f?w=600',
             lat: 37.4815,
             lng: 126.8675,
             likes: 3,
-            comments: [{ name: '연구원B', text: '자료 확인했습니다!' }]
+            comments: [{ name: '도시기록가 B', text: '자료 확인했습니다!' }]
         }
     ];
 
@@ -503,7 +503,8 @@
                 }
                 document.getElementById('location-pick-banner').style.display = 'none';
 
-                uploadImageToStorageAndSave(pendingUploadData.fileObj, pendingUploadData, finalLat, finalLng);
+                // 좌표로부터 동(Dong) 이름 자동 역추적 후 저장
+                autoDetectDongAndSave(pendingUploadData.fileObj, pendingUploadData, finalLat, finalLng);
                 pendingUploadData = null;
             }
         });
@@ -681,7 +682,7 @@
                     <div class="dong-tag" onclick="filterDong('${item.dong}')">${item.dong}</div>
                 </div>
                 <div class="author-row">
-                    <span class="strata-author"><i class="fa-solid fa-user-pen"></i> ${item.author}</span>
+                    <span class="strata-author"><i class="fa-solid fa-user-pen"></i> 도시기록가: ${item.author}</span>
                 </div>
                 <div class="strata-img-wrap">
                     <img src="${item.imgUrl}" class="strata-img" alt="기록 사진" onclick="openModal('${item.imgUrl}')">
@@ -713,14 +714,15 @@
         });
     }
 
+    /* EXIF 메타데이터(날짜 및 GPS) 자동 추출 */
     function handlePhotoSeedUpload(event) {
         const file = event.target.files[0];
         if (!file) return;
 
-        showLoading("사진 EXIF 메타데이터를 분석 중입니다...");
+        showLoading("사진 EXIF 데이터(날짜·위치)를 자동 분석 중...");
 
         EXIF.getData(file, function() {
-            let extractedYear = "2026";
+            let extractedYear = "1985"; // 기본값 (옛 사진 감성)
             let lat = null;
             let lng = null;
 
@@ -762,34 +764,57 @@
         if (!title) return;
 
         const desc = prompt("발견한 내용이나 메모를 남겨주세요:", "이곳의 옛 모습 관련 기록입니다.");
-        const year = prompt("추정되는 연도를 입력해주세요 (예: 1985):", defaultYear || "1985");
+        const year = prompt("촬영된 연도를 확인 또는 수정해주세요:", defaultYear);
         
-        let dong = prompt("광명시 내 동 이름을 입력해주세요 (철산동, 하안동, 소하동, 광명동, 일직동, 학온동, 옥길동 중 하나):", "철산동");
-        if (!dong) dong = "철산동";
-
-        const author = prompt("연구원(작성자)명을 입력해주세요:", "연구원");
+        const author = prompt("도시기록가명을 입력해주세요:", "도시기록가");
         if (!author) return;
 
         const password = prompt("기록 관리를 위한 비밀번호(4자리)를 입력해주세요:", "1234");
         if (!password) return;
 
         const metaData = {
-            title, desc, year, dong, author, password,
+            title, desc, year, author, password,
             fileObj,
             likes: 0,
             comments: []
         };
 
+        // 사진에 GPS가 포함되어 있는 경우 자동 위치 지정 완료
         if (lat && lng) {
-            if (confirm("사진에서 위치 정보(GPS)를 감지했습니다. 해당 위치에 등록하시겠습니까?")) {
-                uploadImageToStorageAndSave(fileObj, metaData, lat, lng);
-                return;
-            }
+            alert("✨ 사진에 포함된 GPS 위치를 자동으로 인식했습니다!");
+            autoDetectDongAndSave(fileObj, metaData, lat, lng);
+        } else {
+            // GPS가 없는 경우에만 사용자가 지도 클릭하도록 유도
+            pendingUploadData = metaData;
+            alert("💡 사진에 위치 정보가 없습니다. 지도에서 사진이 위치할 장소를 클릭해주세요!");
+            document.getElementById('location-pick-banner').style.display = 'block';
         }
+    }
 
-        pendingUploadData = metaData;
-        alert("지도에서 기록이 위치할 장소를 클릭해주세요!");
-        document.getElementById('location-pick-banner').style.display = 'block';
+    /* 좌표를 기반으로 광명시 동 이름을 주소검색으로 자동 판별 후 저장 */
+    function autoDetectDongAndSave(fileObj, dataObj, lat, lng) {
+        showLoading("위치 주소를 분석하여 동(Dong)을 파악 중...");
+
+        geocoder.coord2RegionCode(lng, lat, function(result, status) {
+            let detectedDong = "철산동"; // 기본값
+            if (status === kakao.maps.services.Status.OK) {
+                for (let i = 0; i < result.length; i++) {
+                    // 행정동 또는 법정동 이름 추출
+                    if (result[i].region_type === 'H' || result[i].region_type === 'B') {
+                        const name = result[i].address_name;
+                        if (name.includes('철산')) { detectedDong = '철산동'; break; }
+                        else if (name.includes('하안')) { detectedDong = '하안동'; break; }
+                        else if (name.includes('소하')) { detectedDong = '소하동'; break; }
+                        else if (name.includes('광명')) { detectedDong = '광명동'; break; }
+                        else if (name.includes('일직')) { detectedDong = '일직동'; break; }
+                        else if (name.includes('학온')) { detectedDong = '학온동'; break; }
+                        else if (name.includes('옥길')) { detectedDong = '옥길동'; break; }
+                    }
+                }
+            }
+            dataObj.dong = detectedDong;
+            uploadImageToStorageAndSave(fileObj, dataObj, lat, lng);
+        });
     }
 
     function uploadImageToStorageAndSave(fileObj, dataObj, lat, lng) {
@@ -818,7 +843,7 @@
                         title: dataObj.title,
                         desc: dataObj.desc,
                         year: dataObj.year,
-                        dong: dataObj.dong,
+                        dong: dataObj.dong || '철산동',
                         author: dataObj.author,
                         password: dataObj.password,
                         imgUrl: downloadURL,
@@ -833,7 +858,7 @@
                     db.collection("strata_records").doc(newId).set(finalRecord)
                         .then(() => {
                             hideLoading();
-                            alert("고화질 원본 기록이 성공적으로 등록되었습니다!");
+                            alert(`[${finalRecord.dong}] 지역에 고화질 기록이 성공적으로 등록되었습니다!`);
                             filterDong(finalRecord.dong);
                         })
                         .catch(err => {
