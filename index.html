@@ -3,22 +3,23 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>광명시 시간의 지층 아카이브 - 타임슬립 퀘스트</title>
+    <title>광명시 시간의 지층 아카이브 - 소모임 기록소</title>
     <!-- Pretendard 폰트 & FontAwesome 아이콘 -->
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard/dist/web/static/pretendard.css">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
     <!-- EXIF 메타데이터 추출 라이브러리 -->
     <script src="https://cdn.jsdelivr.net/npm/exif-js"></script>
 
-    <!-- Firebase SDK (v9 Compat) -->
+    <!-- Firebase SDK (v9 Compat) - Firestore 및 Storage 포함 -->
     <script src="https://www.gstatic.com/firebasejs/9.22.1/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/9.22.1/firebase-firestore-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.22.1/firebase-storage-compat.js"></script>
 
     <style>
         * { box-sizing: border-box; margin: 0; padding: 0; font-family: 'Pretendard', sans-serif; }
         html, body { width: 100%; height: 100%; background-color: #0f1115; color: #f3f4f6; overflow: hidden; }
 
-        /* 다중 장면 인트로 오버레이 스크린 */
+        /* 인트로 오버레이 스크린 */
         #intro-screen {
             position: fixed; top: 0; left: 0; width: 100vw; height: 100vh;
             background: radial-gradient(circle at center, #1c212b 0%, #050608 100%);
@@ -32,7 +33,6 @@
             position: relative; min-height: 300px; display: flex; flex-direction: column; justify-content: space-between;
         }
         
-        /* 우측 상단 건너뛰기 버튼 */
         .intro-skip-btn {
             position: absolute; top: 16px; right: 20px; background: none; border: none;
             color: #9ca3af; font-size: 0.75rem; font-weight: 700; cursor: pointer;
@@ -47,7 +47,6 @@
         .scene-title { font-size: 1.1rem; font-weight: 800; color: #f3f4f6; margin-bottom: 10px; letter-spacing: -0.5px; }
         .scene-desc { font-size: 0.8rem; color: #9ca3af; line-height: 1.6; word-break: keep-all; }
 
-        /* 인트로 하단 네비게이션 및 인디케이터 */
         .intro-footer { display: flex; justify-content: space-between; align-items: center; margin-top: 20px; border-top: 1px solid rgba(255,255,255,0.08); padding-top: 14px; }
         .intro-dots { display: flex; gap: 6px; }
         .dot { width: 6px; height: 6px; border-radius: 50%; background: #374151; transition: background 0.3s; }
@@ -67,16 +66,7 @@
         .logo { font-size: 0.9rem; font-weight: 800; color: #60a5fa; display: flex; align-items: center; gap: 4px; }
         .logo i { color: #f59e0b; }
 
-        .header-right { display: flex; align-items: center; gap: 4px; }
-
-        .header-btn {
-            background: linear-gradient(135deg, #f59e0b, #d97706); color: #000;
-            border: none; padding: 3px 6px; border-radius: 6px; font-size: 0.65rem; font-weight: 800;
-            cursor: pointer; display: flex; align-items: center; gap: 3px; box-shadow: 0 2px 6px rgba(245,158,11,0.3);
-        }
-        .header-btn.rank { background: linear-gradient(135deg, #10b981, #059669); color: #fff; }
-        .header-btn.quest { background: linear-gradient(135deg, #8b5cf6, #7c3aed); color: #fff; }
-        .header-btn:hover { opacity: 0.9; }
+        .header-info { font-size: 0.72rem; color: #9ca3af; font-weight: 600; }
 
         #main-container { display: flex; flex-direction: column; height: calc(100vh - 44px); width: 100%; }
 
@@ -87,7 +77,6 @@
         #map, #roadview { width: 100%; height: 100%; position: absolute; top: 0; left: 0; }
         #roadview { z-index: 5; display: none; }
 
-        /* 거리뷰 모드 닫기 버튼 (축소형) */
         #roadview-close-btn {
             position: absolute; top: 12px; right: 12px; z-index: 9999;
             width: 28px; height: 28px; background: rgba(15, 17, 21, 0.85); color: #fff; border: 1.5px solid #3b82f6;
@@ -147,14 +136,6 @@
             flex: 1; display: flex; flex-direction: column; padding: 10px 12px; overflow-y: auto;
         }
 
-        .battle-banner {
-            background: linear-gradient(135deg, rgba(139, 92, 246, 0.15), rgba(37, 99, 235, 0.15));
-            border: 1px solid rgba(139, 92, 246, 0.3); border-radius: 6px; padding: 5px 8px;
-            margin-bottom: 8px; display: flex; justify-content: space-between; align-items: center;
-        }
-        .battle-info .b-title { font-size: 0.68rem; font-weight: 800; color: #c084fc; }
-        .battle-badge { background: #7c3aed; color: #fff; font-size: 0.6rem; font-weight: 800; padding: 2px 6px; border-radius: 8px; white-space: nowrap; }
-
         .category-filter {
             display: flex; gap: 5px; overflow-x: auto; padding-bottom: 6px; margin-bottom: 8px;
             -webkit-overflow-scrolling: touch; scrollbar-width: none; flex-shrink: 0;
@@ -201,7 +182,6 @@
 
         .author-row { display: flex; align-items: center; gap: 4px; margin-bottom: 4px; flex-wrap: wrap; }
         .strata-author { font-size: 0.68rem; color: #f59e0b; font-weight: 700; }
-        .badge-tag { font-size: 0.58rem; background: rgba(245, 158, 11, 0.2); border: 1px solid rgba(245, 158, 11, 0.4); color: #f59e0b; padding: 1px 4px; border-radius: 6px; }
 
         .strata-img-wrap { position: relative; width: 100%; margin: 6px 0; border-radius: 6px; overflow: hidden; background: #0f1115; }
         .strata-img { width: 100%; max-height: 280px; object-fit: cover; display: block; cursor: pointer; }
@@ -241,31 +221,6 @@
 
         .empty-state { text-align: center; padding: 30px 10px; color: #6b7280; font-size: 0.78rem; }
 
-        .custom-modal {
-            display: none; position: fixed; top: 0; left: 0; width: 100vw; height: 100vh;
-            background: rgba(15, 17, 21, 0.96); z-index: 1500; overflow-y: auto; padding: 16px;
-        }
-        .modal-inner-box { max-width: 500px; margin: 30px auto; background: #1c212b; border: 1px solid #3b82f6; border-radius: 12px; padding: 18px; position: relative; }
-        .modal-header-row { display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; border-bottom: 1px solid #2d323e; padding-bottom: 8px; }
-        .modal-header-row h2 { color: #f59e0b; font-size: 1rem; display: flex; align-items: center; gap: 6px; }
-        .modal-x-btn { background: none; border: none; color: #9ca3af; font-size: 1.3rem; cursor: pointer; }
-        .modal-desc-txt { font-size: 0.75rem; color: #9ca3af; margin-bottom: 14px; line-height: 1.3; }
-
-        .quest-card-item { background: #14171d; border: 1px solid #8b5cf6; border-radius: 8px; padding: 10px; margin-bottom: 8px; }
-        .quest-title { font-size: 0.8rem; font-weight: 800; color: #c084fc; margin-bottom: 2px; }
-        .quest-desc { font-size: 0.7rem; color: #cbd5e1; margin-bottom: 6px; }
-        .quest-reward { font-size: 0.68rem; color: #34d399; font-weight: 700; margin-bottom: 8px; }
-        .quest-btn { background: #8b5cf6; color: #fff; border: none; padding: 4px 10px; border-radius: 4px; font-weight: 700; font-size: 0.7rem; cursor: pointer; }
-
-        .gallery-item { background: #14171d; border: 1px solid #2d323e; border-radius: 8px; padding: 8px; margin-bottom: 8px; display: flex; gap: 10px; align-items: center; }
-        .gallery-rank { font-size: 0.95rem; font-weight: 900; color: #f59e0b; width: 28px; text-align: center; }
-        .gallery-rank.top-three { color: #38bdf8; }
-        .gallery-img { width: 70px; height: 60px; object-fit: cover; border-radius: 6px; }
-        .gallery-info { flex: 1; }
-        .gallery-info .g-title { font-size: 0.78rem; font-weight: 800; color: #60a5fa; margin-bottom: 2px; }
-        .gallery-info .g-sub { font-size: 0.65rem; color: #9ca3af; margin-bottom: 2px; }
-        .gallery-info .g-score { font-size: 0.65rem; color: #34d399; font-weight: 700; }
-
         #img-modal {
             display: none; position: fixed; top: 0; left: 0; width: 100vw; height: 100vh;
             background: rgba(0,0,0,0.92); z-index: 2000; overflow: hidden; touch-action: none; user-select: none;
@@ -292,41 +247,35 @@
 </head>
 <body>
 
-<!-- 다중 장면 인트로 화면 (건너뛰기 기능 포함) -->
+<!-- 인트로 화면 -->
 <div id="intro-screen">
     <div class="intro-slide-container">
-        <!-- 건너뛰기 버튼 -->
         <button class="intro-skip-btn" onclick="skipIntro()">건너뛰기 &gt;</button>
 
-        <!-- Scene 1 -->
         <div class="intro-scene active" id="scene-1">
             <div class="scene-icon"><i class="fa-solid fa-layer-group"></i></div>
             <div class="scene-title">광명시 시간의 지층</div>
             <div class="scene-desc">
-                개발이 한창인 도시 속에서, 과거의 흔적들은 점차 잊혀지고 있습니다. 우리는 이 땅에 묻힌 옛 기억들을 발굴하려 합니다.
+                우리 소모임 멤버들이 각자 발견하고 수집한 광명의 옛 기억과 기록들을 고화질로 공유하는 공간입니다.
             </div>
         </div>
 
-        <!-- Scene 2 -->
         <div class="intro-scene" id="scene-2">
             <div class="scene-icon"><i class="fa-solid fa-book-open"></i></div>
-            <div class="scene-title">고고학자 장은의 기록</div>
+            <div class="scene-title">기록 보관소 활용법</div>
             <div class="scene-desc">
-                현장 속에서 우연히 발견된 낡은 기록물 <b>『빛나고 밝은』</b>.<br>
-                하지만 세월 속에 지워진 페이지들은 책 혼자 채울 수 없습니다.
+                지도를 탐색하며 원본 사진을 등록하고, 연대별 슬라이더를 통해 시간의 흐름에 따른 변화를 살펴보세요.
             </div>
         </div>
 
-        <!-- Scene 3 -->
         <div class="intro-scene" id="scene-3">
             <div class="scene-icon"><i class="fa-solid fa-camera-retro"></i></div>
-            <div class="scene-title">여러분의 기억을 더해주세요</div>
+            <div class="scene-title">함께 채워가는 아카이브</div>
             <div class="scene-desc">
-                서랍 속에 잠든 옛 사진 한 장이 사라져간 광명의 풍경을 완성합니다. 지층 속 기억들을 함께 복원해 보세요.
+                서로의 발견을 기록하고 의견을 나누며 광명의 역사 지도를 완성해 나갑니다.
             </div>
         </div>
 
-        <!-- 하단 네비게이션 -->
         <div class="intro-footer">
             <div class="intro-dots">
                 <div class="dot active" id="dot-1"></div>
@@ -343,17 +292,7 @@
         <i class="fa-solid fa-layer-group"></i>
         <span>광명시 시간의 지층</span>
     </div>
-    <div class="header-right">
-        <button class="header-btn quest" onclick="openQuestModal()">
-            <i class="fa-solid fa-scroll"></i> 퀘스트
-        </button>
-        <button class="header-btn rank" onclick="openRankModal()">
-            <i class="fa-solid fa-trophy"></i> 랭킹
-        </button>
-        <button class="header-btn" onclick="openMuseumModal()">
-            <i class="fa-solid fa-landmark"></i> 미술관
-        </button>
-    </div>
+    <div class="header-info">소모임 기록 아카이브</div>
 </header>
 
 <div id="main-container">
@@ -361,7 +300,6 @@
         <div id="map"></div>
         <div id="roadview"></div>
         
-        <!-- 거리뷰 모드 시 축소된 닫기 버튼 -->
         <button id="roadview-close-btn" onclick="closeRoadviewMode()" title="지도로 돌아가기">
             &times;
         </button>
@@ -378,13 +316,6 @@
         </div>
 
         <div id="strata-main-content">
-            <div class="battle-banner" id="battle-banner-box">
-                <div class="battle-info">
-                    <div class="b-title" id="battle-top-dong">🔥 1위 동네: 로딩 중...</div>
-                </div>
-                <div class="battle-badge">라이브 경쟁</div>
-            </div>
-
             <div class="category-filter" id="dong-filter-bar">
                 <button class="cat-btn active" onclick="filterDong('ALL', this)">전체</button>
                 <button class="cat-btn" onclick="filterDong('철산동', this)">철산동</button>
@@ -397,56 +328,12 @@
             </div>
 
             <button class="upload-btn" onclick="document.getElementById('file-input').click()">
-                <i class="fa-solid fa-camera-retro"></i> 추억 사진 올리고 랭킹 참여
+                <i class="fa-solid fa-camera-retro"></i> 원본 기록 사진 올리기
             </button>
             <input type="file" id="file-input" accept="image/*" style="display:none;" onchange="handlePhotoSeedUpload(event)">
 
             <div class="strata-timeline" id="strata-list"></div>
         </div>
-    </div>
-</div>
-
-<div id="quest-modal" class="custom-modal">
-    <div class="modal-inner-box" style="border-color: #8b5cf6;">
-        <div class="modal-header-row">
-            <h2><i class="fa-solid fa-scroll" style="color:#c084fc;"></i> 지층 발굴 퀘스트</h2>
-            <button class="modal-x-btn" onclick="closeQuestModal()">&times;</button>
-        </div>
-        <div class="modal-desc-txt">지정된 퀘스트 사진을 등록하고 특별 뱃지와 가점을 획득하세요.</div>
-        <div class="quest-card-item">
-            <div class="quest-title">퀘스트 #1: 옛 철산주공 아파트 단지</div>
-            <div class="quest-desc">80~90년대 철산주공 저층 아파트 시절 전경을 찾아 등록해주세요.</div>
-            <div class="quest-reward">🎁 보상: 타임슬립 마스터 뱃지 + 가점 3배</div>
-            <button class="quest-btn" onclick="startQuestUpload('철산동', '1980년대 철산주공 옛 모습')">도전하기</button>
-        </div>
-        <div class="quest-card-item">
-            <div class="quest-title">퀘스트 #2: 하안동 농경지 및 초창기 풍경</div>
-            <div class="quest-desc">아파트가 들어서기 전 논밭이 펼쳐졌던 옛 풍경을 찾습니다.</div>
-            <div class="quest-reward">🎁 보상: 명예 큐레이터 뱃지 + 가점</div>
-            <button class="quest-btn" onclick="startQuestUpload('하안동', '하안동 초창기 개발 풍경')">도전하기</button>
-        </div>
-    </div>
-</div>
-
-<div id="museum-modal" class="custom-modal">
-    <div class="modal-inner-box">
-        <div class="modal-header-row">
-            <h2><i class="fa-solid fa-landmark" style="color:#f59e0b;"></i> 지층 미술관 (TOP 10)</h2>
-            <button class="modal-x-btn" onclick="closeMuseumModal()">&times;</button>
-        </div>
-        <div class="modal-desc-txt">공감수가 높은 인기 지층 작품 전시관입니다.</div>
-        <div id="museum-gallery-list"></div>
-    </div>
-</div>
-
-<div id="rank-modal" class="custom-modal">
-    <div class="modal-inner-box" style="border-color: #10b981;">
-        <div class="modal-header-row">
-            <h2><i class="fa-solid fa-trophy" style="color:#10b981;"></i> 시민 작가 랭킹</h2>
-            <button class="modal-x-btn" onclick="closeRankModal()">&times;</button>
-        </div>
-        <div class="modal-desc-txt">등록된 사진 지층 점수 합산 순위입니다.</div>
-        <div id="author-rank-list"></div>
     </div>
 </div>
 
@@ -482,6 +369,7 @@
 
     firebase.initializeApp(firebaseConfig);
     const db = firebase.firestore();
+    const storage = firebase.storage();
 
     let map, geocoder;
     let roadview, roadviewClient;
@@ -492,7 +380,6 @@
     let currentLatLng = null;
 
     let userStrataStore = [];
-    let activeQuestTag = null;
     let pendingUploadData = null;
     let tempPickMarker = null;
 
@@ -551,44 +438,13 @@
             desc: '개발 초기 활기차던 철산동 주공단지 풍경입니다. 아이들이 골목에서 뛰어놀던 시절이 그립네요.',
             year: '1985',
             dong: '철산동',
-            author: '광명토박이',
+            author: '연구원A',
             password: '1234',
             imgUrl: 'https://images.unsplash.com/photo-1513694203232-719a280e022f?w=600',
             lat: 37.4815,
             lng: 126.8675,
-            likes: 12,
-            isQuest: true,
-            comments: [{ name: '시민A', text: '그때가 정말 정겨웠죠!' }]
-        },
-        {
-            id: 'sample_2',
-            title: '하안동 논밭과 초창기 개발',
-            desc: '아파트가 들어서기 전 한적했던 하안동 일대 모습. 온통 논밭이었던 기억이 납니다.',
-            year: '1992',
-            dong: '하안동',
-            author: '지층탐험가',
-            password: '1234',
-            imgUrl: 'https://images.unsplash.com/photo-1500382017468-9049fed747ef?w=600',
-            lat: 37.4618,
-            lng: 126.8672,
-            likes: 8,
-            isQuest: false,
-            comments: []
-        },
-        {
-            id: 'sample_3',
-            title: 'KTX 광명역 개통 초기 일직동',
-            desc: '허허벌판이던 일직동에 역사가 들어서던 순간입니다. 지금과 너무 달라 감회가 새롭네요.',
-            year: '2004',
-            dong: '일직동',
-            author: '역사기록관',
-            password: '1234',
-            imgUrl: 'https://images.unsplash.com/photo-1486406146926-c627a92ad1ab?w=600',
-            lat: 37.4208,
-            lng: 126.8831,
-            likes: 15,
-            isQuest: false,
-            comments: []
+            likes: 3,
+            comments: [{ name: '연구원B', text: '자료 확인했습니다!' }]
         }
     ];
 
@@ -637,7 +493,7 @@
                 tempPickMarker.setPosition(clickedLatLng);
             }
 
-            if (confirm("이 위치에 사진을 등록하시겠습니까?")) {
+            if (confirm("이 위치에 기록을 등록하시겠습니까?")) {
                 const finalLat = clickedLatLng.getLat();
                 const finalLng = clickedLatLng.getLng();
                 
@@ -647,7 +503,7 @@
                 }
                 document.getElementById('location-pick-banner').style.display = 'none';
 
-                saveRecordToFirestore(pendingUploadData, finalLat, finalLng);
+                uploadImageToStorageAndSave(pendingUploadData.fileObj, pendingUploadData, finalLat, finalLng);
                 pendingUploadData = null;
             }
         });
@@ -683,21 +539,6 @@
         map.relayout();
     }
 
-    function getAuthorBadge(authorName, photoCount, totalScore) {
-        if (totalScore >= 500 || photoCount >= 5) return "👑 명예 큐레이터";
-        if (photoCount >= 3) return "✨ 타임슬립 마스터";
-        return "🌱 탐험가";
-    }
-
-    function calculateScore(item) {
-        const yearStr = (item.year || "2026").replace(/[^0-9]/g, '');
-        const yearNum = parseInt(yearStr, 10) || 2026;
-        const ageScore = Math.max(0, (2026 - yearNum) * 10);
-        const likes = item.likes || 0;
-        const questBonus = item.isQuest ? 150 : 0;
-        return ageScore + (likes * 15) + questBonus;
-    }
-
     function initFirebaseRealtimeSync() {
         db.collection("strata_records").onSnapshot(snapshot => {
             userStrataStore = [];
@@ -710,41 +551,14 @@
                 });
                 userStrataStore = [...INITIAL_SAMPLE_RECORDS];
             }
-            updateDongBattleBanner();
             updateMapMarkers();
             renderStrataTimeline();
         }, error => {
             console.error("Firebase 오류, 샘플 데이터로 대체:", error);
             userStrataStore = [...INITIAL_SAMPLE_RECORDS];
-            updateDongBattleBanner();
             updateMapMarkers();
             renderStrataTimeline();
         });
-    }
-
-    function updateDongBattleBanner() {
-        const dongScores = {};
-        userStrataStore.forEach(item => {
-            const d = item.dong || "기타";
-            const sc = calculateScore(item);
-            dongScores[d] = (dongScores[d] || 0) + sc;
-        });
-
-        let topDong = "철산동";
-        let maxScore = -1;
-        for (const [dong, score] of Object.entries(dongScores)) {
-            if (score > maxScore) {
-                maxScore = score;
-                topDong = dong;
-            }
-        }
-
-        const bannerTitle = document.getElementById('battle-top-dong');
-        if (maxScore > 0) {
-            bannerTitle.innerHTML = `🔥 1위 동네: <b>${topDong}</b> (${maxScore}점)`;
-        } else {
-            bannerTitle.innerHTML = `🔥 지층 점유율 경쟁 중!`;
-        }
     }
 
     function filterDong(dong, el) {
@@ -813,7 +627,7 @@
 
                 const contentHTML = `
                     <div class="info-card">
-                        <img src="${item.imgUrl}" alt="지층 이미지">
+                        <img src="${item.imgUrl}" alt="기록 이미지">
                         <div class="info-title">${item.title}</div>
                         <div class="info-date">${item.year}년 · ${item.dong}</div>
                         <button class="info-card-btn" onclick="openRoadviewAt(${item.lat}, ${item.lng})">
@@ -844,7 +658,7 @@
         });
 
         if (filtered.length === 0) {
-            listContainer.innerHTML = `<div class="empty-state">해당 조건에 등록된 지층 기록이 없습니다. <br>첫 번째 기억을 남겨보세요!</div>`;
+            listContainer.innerHTML = `<div class="empty-state">해당 조건에 등록된 기록이 없습니다. <br>첫 번째 발견을 기록해보세요!</div>`;
             return;
         }
 
@@ -853,11 +667,6 @@
         filtered.forEach(item => {
             const card = document.createElement('div');
             card.className = 'strata-card';
-
-            const authorItems = userStrataStore.filter(x => x.author === item.author);
-            const authorCount = authorItems.length;
-            const authorTotalScore = authorItems.reduce((acc, cur) => acc + calculateScore(cur), 0);
-            const badgeStr = getAuthorBadge(item.author, authorCount, authorTotalScore);
 
             const commentsArr = item.comments || [];
             let commentsHtml = '';
@@ -873,8 +682,6 @@
                 </div>
                 <div class="author-row">
                     <span class="strata-author"><i class="fa-solid fa-user-pen"></i> ${item.author}</span>
-                    <span class="badge-tag">${badgeStr}</span>
-                    ${item.isQuest ? '<span class="badge-tag" style="background:rgba(139,92,246,0.2);border-color:rgba(139,92,246,0.4);color:#c084fc;">⭐ 퀘스트</span>' : ''}
                 </div>
                 <div class="strata-img-wrap">
                     <img src="${item.imgUrl}" class="strata-img" alt="기록 사진" onclick="openModal('${item.imgUrl}')">
@@ -883,11 +690,11 @@
                 
                 <div class="comment-section">
                     <div class="comment-list" id="comment-list-${item.id}">
-                        ${commentsHtml || '<div style="color:#6b7280;font-size:0.65rem;">아직 댓글이 없습니다. 첫 의견을 남겨보세요!</div>'}
+                        ${commentsHtml || '<div style="color:#6b7280;font-size:0.65rem;">아직 코멘트가 없습니다. 의견을 남겨보세요!</div>'}
                     </div>
                     <div class="comment-input-row">
                         <input type="text" class="comment-input" id="c-name-${item.id}" placeholder="이름" style="width:50px;">
-                        <input type="text" class="comment-input" id="c-text-${item.id}" placeholder="댓글 남기기...">
+                        <input type="text" class="comment-input" id="c-text-${item.id}" placeholder="코멘트 남기기...">
                         <button class="comment-submit-btn" onclick="addComment('${item.id}')">등록</button>
                     </div>
                 </div>
@@ -906,11 +713,12 @@
         });
     }
 
+    /* EXIF 메타데이터 추출 및 메타 정보 입력 프로세스 */
     function handlePhotoSeedUpload(event) {
         const file = event.target.files[0];
         if (!file) return;
 
-        showLoading("사진 EXIF 메타데이터 및 정보를 분석 중입니다...");
+        showLoading("사진 EXIF 메타데이터를 분석 중입니다...");
 
         EXIF.getData(file, function() {
             let extractedYear = "2026";
@@ -935,13 +743,8 @@
                 lng = convertDMSToDD(gpsLng, gpsLngRef);
             }
 
-            const reader = new FileReader();
-            reader.onload = function(e) {
-                hideLoading();
-                const base64Img = e.target.result;
-                promptUserUploadMetadata(base64Img, extractedYear, lat, lng);
-            };
-            reader.readAsDataURL(file);
+            hideLoading();
+            promptUserUploadMetadata(file, extractedYear, lat, lng);
         });
         event.target.value = '';
     }
@@ -955,60 +758,93 @@
         return dd;
     }
 
-    function promptUserUploadMetadata(imgUrl, defaultYear, lat, lng) {
-        const title = prompt("추억 사진의 제목을 입력해주세요:", "광명시의 옛 추억");
+    function promptUserUploadMetadata(fileObj, defaultYear, lat, lng) {
+        const title = prompt("기록 사진의 제목을 입력해주세요:", "광명시 발견 기록");
         if (!title) return;
 
-        const desc = prompt("사진에 얽힌 이야기를 남겨주세요:", "이곳의 옛날 모습입니다.");
-        const year = prompt("촬영된 연도를 입력해주세요 (예: 1985):", defaultYear || "1985");
+        const desc = prompt("발견한 내용이나 메모를 남겨주세요:", "이곳의 옛 모습 관련 기록입니다.");
+        const year = prompt("추정되는 연도를 입력해주세요 (예: 1985):", defaultYear || "1985");
         
         let dong = prompt("광명시 내 동 이름을 입력해주세요 (철산동, 하안동, 소하동, 광명동, 일직동, 학온동, 옥길동 중 하나):", "철산동");
         if (!dong) dong = "철산동";
 
-        const author = prompt("작성자(시민 작가)명을 입력해주세요:", "광명시민");
+        const author = prompt("연구원(작성자)명을 입력해주세요:", "연구원");
         if (!author) return;
 
-        const password = prompt("기록 삭제 및 관리를 위한 비밀번호(4자리)를 입력해주세요:", "1234");
+        const password = prompt("기록 관리를 위한 비밀번호(4자리)를 입력해주세요:", "1234");
         if (!password) return;
 
-        const dataObj = {
+        const metaData = {
             title, desc, year, dong, author, password,
-            imgUrl,
+            fileObj,
             likes: 0,
-            isQuest: activeQuestTag ? true : false,
             comments: []
         };
-        activeQuestTag = null;
 
         if (lat && lng) {
             if (confirm("사진에서 위치 정보(GPS)를 감지했습니다. 해당 위치에 등록하시겠습니까?")) {
-                saveRecordToFirestore(dataObj, lat, lng);
+                uploadImageToStorageAndSave(fileObj, metaData, lat, lng);
                 return;
             }
         }
 
-        pendingUploadData = dataObj;
-        alert("지도에서 사진이 위치할 장소를 클릭해주세요!");
+        pendingUploadData = metaData;
+        alert("지도에서 기록이 위치할 장소를 클릭해주세요!");
         document.getElementById('location-pick-banner').style.display = 'block';
     }
 
-    function saveRecordToFirestore(dataObj, lat, lng) {
-        showLoading("지층에 새로운 기억을 기록하고 있습니다...");
-        dataObj.lat = lat;
-        dataObj.lng = lng;
-        dataObj.createdAt = Date.now();
+    /* Firebase Storage에 원본 고화질 사진 업로드 후 Firestore에 데이터 저장 */
+    function uploadImageToStorageAndSave(fileObj, dataObj, lat, lng) {
+        showLoading("고화질 원본 사진을 클라우드 저장소에 업로드 중...");
 
-        const newId = 'record_' + Date.now();
-        db.collection("strata_records").doc(newId).set(dataObj)
-            .then(() => {
+        const fileExtension = fileObj.name.split('.').pop();
+        const fileName = `records_${Date.now()}_${Math.random().toString(36.substring(2, 8))}.${fileExtension}`;
+        const storageRef = storage.ref(`strata_images/${fileName}`);
+
+        const uploadTask = storageRef.put(fileObj);
+
+        uploadTask.on('state_changed', 
+            (snapshot) => {
+                const progress = (snapshot.bytesTransferred / snapshot.totalBytes) * 100;
+                showLoading(`사진 업로드 중... (${Math.round(progress)}%)`);
+            }, 
+            (error) => {
                 hideLoading();
-                alert("성공적으로 지층에 기록되었습니다!");
-                filterDong(dataObj.dong);
-            })
-            .catch(err => {
-                hideLoading();
-                alert("저장 중 오류가 발생했습니다: " + err.message);
-            });
+                alert("사진 업로드 실패: " + error.message);
+            }, 
+            () => {
+                uploadTask.snapshot.ref.getDownloadURL().then((downloadURL) => {
+                    showLoading("기록 데이터를 동기화 중...");
+
+                    const finalRecord = {
+                        title: dataObj.title,
+                        desc: dataObj.desc,
+                        year: dataObj.year,
+                        dong: dataObj.dong,
+                        author: dataObj.author,
+                        password: dataObj.password,
+                        imgUrl: downloadURL, // Storage 다운로드 원본 URL 저장
+                        lat: lat,
+                        lng: lng,
+                        likes: dataObj.likes,
+                        comments: dataObj.comments,
+                        createdAt: Date.now()
+                    };
+
+                    const newId = 'record_' + Date.now();
+                    db.collection("strata_records").doc(newId).set(finalRecord)
+                        .then(() => {
+                            hideLoading();
+                            alert("고화질 원본 기록이 성공적으로 등록되었습니다!");
+                            filterDong(finalRecord.dong);
+                        })
+                        .catch(err => {
+                            hideLoading();
+                            alert("데이터 저장 중 오류 발생: " + err.message);
+                        });
+                });
+            }
+        );
     }
 
     function pressLike(id) {
@@ -1023,7 +859,6 @@
         }).then(newLikes => {
             const span = document.getElementById(`like-count-${id}`);
             if (span) span.innerText = newLikes;
-            updateDongBattleBanner();
         }).catch(err => console.log(err));
     }
 
@@ -1034,7 +869,7 @@
         const text = textInput.value.trim();
 
         if (!name || !text) {
-            alert("이름과 댓글 내용을 모두 입력해주세요.");
+            alert("이름과 코멘트 내용을 모두 입력해주세요.");
             return;
         }
 
@@ -1050,7 +885,7 @@
         }).then(() => {
             nameInput.value = '';
             textInput.value = '';
-        }).catch(err => alert("댓글 저장 실패: " + err));
+        }).catch(err => alert("코멘트 저장 실패: " + err));
     }
 
     function deleteRecord(id) {
@@ -1076,87 +911,6 @@
                 alert("삭제 실패: " + err.message);
             });
     }
-
-    function openQuestModal() { document.getElementById('quest-modal').style.display = 'block'; }
-    function closeQuestModal() { document.getElementById('quest-modal').style.display = 'none'; }
-    function startQuestUpload(dongName, questTitleHint) {
-        activeQuestTag = questTitleHint;
-        closeQuestModal();
-        document.getElementById('file-input').click();
-    }
-
-    function openMuseumModal() {
-        const modal = document.getElementById('museum-modal');
-        const container = document.getElementById('museum-gallery-list');
-        modal.style.display = 'block';
-
-        const sorted = [...userStrataStore].sort((a, b) => (b.likes || 0) - (a.likes || 0)).slice(0, 10);
-        container.innerHTML = '';
-
-        if (sorted.length === 0) {
-            container.innerHTML = `<div class="empty-state">등록된 작품이 없습니다.</div>`;
-            return;
-        }
-
-        sorted.forEach((item, idx) => {
-            const rankClass = idx < 3 ? 'top-three' : '';
-            container.innerHTML += `
-                <div class="gallery-item">
-                    <div class="gallery-rank ${rankClass}">${idx + 1}</div>
-                    <img src="${item.imgUrl}" class="gallery-img" onclick="openModal('${item.imgUrl}')">
-                    <div class="gallery-info">
-                        <div class="g-title">${item.title}</div>
-                        <div class="g-sub">${item.year}년 · ${item.dong} · 작가: ${item.author}</div>
-                        <div class="g-score"><i class="fa-solid fa-heart" style="color:#f87171;"></i> 공감 ${item.likes || 0}개</div>
-                    </div>
-                </div>
-            `;
-        });
-    }
-    function closeMuseumModal() { document.getElementById('museum-modal').style.display = 'none'; }
-
-    function openRankModal() {
-        const modal = document.getElementById('rank-modal');
-        const container = document.getElementById('author-rank-list');
-        modal.style.display = 'block';
-
-        const authorMap = {};
-        userStrataStore.forEach(item => {
-            const auth = item.author || "익명";
-            if (!authorMap[auth]) {
-                authorMap[auth] = { count: 0, score: 0 };
-            }
-            authorMap[auth].count += 1;
-            authorMap[auth].score += calculateScore(item);
-        });
-
-        const authorArr = [];
-        for (const [name, info] of Object.entries(authorMap)) {
-            authorArr.push({ name, count: info.count, score: info.score, badge: getAuthorBadge(name, info.count, info.score) });
-        }
-        authorArr.sort((a, b) => b.score - a.score);
-
-        container.innerHTML = '';
-        if (authorArr.length === 0) {
-            container.innerHTML = `<div class="empty-state">등록된 작가가 없습니다.</div>`;
-            return;
-        }
-
-        authorArr.forEach((auth, idx) => {
-            const rankClass = idx < 3 ? 'top-three' : '';
-            container.innerHTML += `
-                <div class="gallery-item">
-                    <div class="gallery-rank ${rankClass}">${idx + 1}</div>
-                    <div class="gallery-info">
-                        <div class="g-title">${auth.name} <span style="font-size:0.65rem;color:#f59e0b;font-weight:normal;">(${auth.badge})</span></div>
-                        <div class="g-sub">기록 사진: ${auth.count}장</div>
-                        <div class="g-score">총 지층 점수: ${auth.score}점</div>
-                    </div>
-                </div>
-            `;
-        });
-    }
-    function closeRankModal() { document.getElementById('rank-modal').style.display = 'none'; }
 
     let currentScale = 1;
     let isDragging = false;
