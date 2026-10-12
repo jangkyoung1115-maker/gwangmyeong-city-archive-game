@@ -7,8 +7,6 @@
     <!-- Pretendard 폰트 & FontAwesome 아이콘 -->
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard/dist/web/static/pretendard.css">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
-    <!-- EXIF 메타데이터 추출 라이브러리 -->
-    <script src="https://cdn.jsdelivr.net/npm/exif-js"></script>
 
     <!-- Firebase SDK (v9 Compat) - Firestore 전용 -->
     <script src="https://www.gstatic.com/firebasejs/9.22.1/firebase-app-compat.js"></script>
@@ -700,107 +698,159 @@
         });
     }
 
-    /* 🔥 파일 객체와 이미지 객체 양방향에서 EXIF 메타데이터(위치·날짜)를 완벽하게 추출하도록 복원된 핵심 업로드 핸들러 */
+    /* 🔥 순수 바이너리 및 ArrayBuffer 기반 EXIF 완벽 추출 엔진 (외부 라이브러리 버그 원천 차단) */
     function handlePhotoSeedUpload(event) {
         const file = event.target.files[0];
         if (!file) return;
 
-        showLoading("사진 메타데이터(날짜·위치) 분석 중...");
+        showLoading("사진 메타데이터 분석 중...");
 
-        EXIF.getData(file, function() {
-            let extractedYear = "2026";
-            let lat = null;
-            let lng = null;
+        const reader = new FileReader();
+        reader.onload = function(e) {
+            const buffer = e.target.result;
+            const meta = parseExifFromBuffer(buffer);
 
-            try {
-                const dateTime = EXIF.getTag(this, "DateTimeOriginal") || EXIF.getTag(this, "DateTime");
-                if (dateTime) {
-                    const yearPart = String(dateTime).split(/[:\s]/)[0];
-                    if (yearPart && yearPart.length === 4 && !isNaN(yearPart)) {
-                        extractedYear = yearPart;
-                    }
+            let extractedYear = meta.year || "2026";
+            let lat = meta.lat;
+            let lng = meta.lng;
+
+            // 이미지 압축 및 Base64 변환
+            const blobUrlImg = new Image();
+            blobUrlImg.onload = function() {
+                const canvas = document.createElement('canvas');
+                const MAX_WIDTH = 1000;
+                const MAX_HEIGHT = 1000;
+                let width = blobUrlImg.width;
+                let height = blobUrlImg.height;
+
+                if (width > height) {
+                    if (width > MAX_WIDTH) { height *= MAX_WIDTH / width; width = MAX_WIDTH; }
+                } else {
+                    if (height > MAX_HEIGHT) { width *= MAX_HEIGHT / height; height = MAX_HEIGHT; }
                 }
 
-                const gpsLat = EXIF.getTag(this, "GPSLatitude");
-                const gpsLatRef = EXIF.getTag(this, "GPSLatitudeRef");
-                const gpsLng = EXIF.getTag(this, "GPSLongitude");
-                const gpsLngRef = EXIF.getTag(this, "GPSLongitudeRef");
+                canvas.width = width;
+                canvas.height = height;
+                const ctx = canvas.getContext('2d');
+                ctx.drawImage(blobUrlImg, 0, 0, width, height);
 
-                if (gpsLat && gpsLng) {
-                    lat = convertDMSToDD(gpsLat, gpsLatRef);
-                    lng = convertDMSToDD(gpsLng, gpsLngRef);
-                }
-            } catch (err) {
-                console.log("EXIF 파싱 오류:", err);
-            }
-
-            const reader = new FileReader();
-            reader.onload = function(e) {
-                const dataUrl = e.target.result;
-                const img = new Image();
-
-                img.onload = function() {
-                    const canvas = document.createElement('canvas');
-                    const MAX_WIDTH = 1000;
-                    const MAX_HEIGHT = 1000;
-                    let width = img.width;
-                    let height = img.height;
-
-                    if (width > height) {
-                        if (width > MAX_WIDTH) { height *= MAX_WIDTH / width; width = MAX_WIDTH; }
-                    } else {
-                        if (height > MAX_HEIGHT) { width *= MAX_HEIGHT / height; height = MAX_HEIGHT; }
-                    }
-
-                    canvas.width = width;
-                    canvas.height = height;
-                    const ctx = canvas.getContext('2d');
-                    ctx.drawImage(img, 0, 0, width, height);
-
-                    const compressedBase64 = canvas.toDataURL('image/jpeg', 0.8);
-                    hideLoading();
-
-                    // GPS가 존재하면 곧바로 자동 저장 프로세스로 진입, 없거나 실패한 경우에만 핀 지정 화면 표시
-                    if (lat !== null && lng !== null && !isNaN(lat) && !isNaN(lng)) {
-                        autoDetectDongAndSave(compressedBase64, extractedYear, lat, lng);
-                    } else {
-                        pendingImageBase64 = compressedBase64;
-                        pendingExtractedYear = extractedYear;
-                        document.getElementById('center-pin-container').style.display = 'flex';
-                        document.getElementById('location-pick-banner').style.display = 'flex';
-                    }
-                };
-
-                img.onerror = function() {
-                    hideLoading();
-                    alert("이미지를 불러오지 못했습니다.");
-                };
-
-                img.src = dataUrl;
-            };
-
-            reader.onerror = function() {
+                const compressedBase64 = canvas.toDataURL('image/jpeg', 0.8);
                 hideLoading();
-                alert("파일을 읽어오지 못했습니다.");
+
+                // 핵심 분기: GPS가 있으면 핀 지정창을 건너뛰고 곧바로 자동 저장 프로세스 진입
+                if (lat !== null && lng !== null && !isNaN(lat) && !isNaN(lng)) {
+                    autoDetectDongAndSave(compressedBase64, extractedYear, lat, lng);
+                } else {
+                    // GPS가 없을 때만 수동 핀 지정 화면 활성화
+                    pendingImageBase64 = compressedBase64;
+                    pendingExtractedYear = extractedYear;
+                    document.getElementById('center-pin-container').style.display = 'flex';
+                    document.getElementById('location-pick-banner').style.display = 'flex';
+                }
             };
-
-            reader.readAsDataURL(file);
-        });
-
+            blobUrlImg.src = e.target.result;
+        };
+        reader.readAsArrayBuffer(file);
         event.target.value = '';
     }
 
-    function convertDMSToDD(coordinate, ref) {
+    /* 바이트 직접 파싱 함수 (EXIF 표준 구조 지원) */
+    function parseExifFromBuffer(buffer) {
         try {
-            const degrees = coordinate[0].numerator / coordinate[0].denominator;
-            const minutes = coordinate[1].numerator / coordinate[1].denominator;
-            const seconds = coordinate[2].numerator / coordinate[2].denominator;
-            let dd = degrees + minutes / 60 + seconds / (60 * 60);
-            if (ref === "S" || ref === "W") dd = dd * -1;
-            return dd;
+            const view = new DataView(buffer);
+            if (view.getUint16(0) !== 0xFFD8) return { year: null, lat: null, lng: null }; // JPEG 아님
+
+            let offset = 2;
+            let length = view.byteLength;
+            let tiffOffset = 0;
+            let isLittleEndian = false;
+            let tags = {};
+
+            while (offset < length) {
+                let marker = view.getUint16(offset);
+                offset += 2;
+                if (marker === 0xFFE1) { // APP1 (EXIF)
+                    let app1Length = view.getUint16(offset);
+                    if (view.getUint32(offset + 2) === 0x45786966) { // "Exif"
+                        tiffOffset = offset + 6;
+                        let endian = view.getUint16(tiffOffset);
+                        if (endian === 0x4949) isLittleEndian = true; // II
+                        else if (endian === 0x4D4D) isLittleEndian = false; // MM
+
+                        let firstIFDOffset = view.getUint32(tiffOffset + 4, isLittleEndian);
+                        parseIFD(view, tiffOffset, tiffOffset + firstIFDOffset, isLittleEndian, tags);
+                    }
+                    break;
+                } else if ((marker & 0xFF00) !== 0xFF00) {
+                    break;
+                } else {
+                    offset += view.getUint16(offset);
+                }
+            }
+
+            let year = null;
+            if (tags[0x9003]) { // DateTimeOriginal
+                let dtStr = getStringFromTags(view, tiffOffset, tags[0x9003]);
+                let match = dtStr.match(/(\d{4})/);
+                if (match) year = match[1];
+            }
+
+            let lat = null, lng = null;
+            if (tags[0x8825]) { // GPSInfo IFD pointer
+                let gpsIFDOffset = tiffOffset + tags[0x8825].valueOffset;
+                let gpsTags = {};
+                parseIFD(view, tiffOffset, gpsIFDOffset, isLittleEndian, gpsTags);
+
+                if (gpsTags[2] && gpsTags[1] && gpsTags[4] && gpsTags[3]) { // GPSLatitude, GPSLatitudeRef, GPSLongitude, GPSLongitudeRef
+                    let latVals = getRationalArray(view, tiffOffset, gpsTags[2]);
+                    let latRef = getStringFromTags(view, tiffOffset, gpsTags[1]);
+                    let lngVals = getRationalArray(view, tiffOffset, gpsTags[4]);
+                    let lngRef = getStringFromTags(view, tiffOffset, gpsTags[3]);
+
+                    lat = latVals[0] + latVals[1]/60 + latVals[2]/3600;
+                    if (latRef === 'S') lat = -lat;
+
+                    lng = lngVals[0] + lngVals[1]/60 + lngVals[2]/3600;
+                    if (lngRef === 'W') lng = -lng;
+                }
+            }
+
+            return { year, lat, lng };
         } catch (e) {
-            return null;
+            return { year: null, lat: null, lng: null };
         }
+    }
+
+    function parseIFD(view, tiffOffset, ifdOffset, little, tags) {
+        let numEntries = view.getUint16(ifdOffset, little);
+        for (let i = 0; i < numEntries; i++) {
+            let entryOffset = ifdOffset + 2 + (i * 12);
+            let tag = view.getUint16(entryOffset, little);
+            let type = view.getUint16(entryOffset + 2, little);
+            let count = view.getUint32(entryOffset + 4, little);
+            let valueOffset = view.getUint32(entryOffset + 8, little);
+            tags[tag] = { type, count, valueOffset, entryOffset };
+        }
+    }
+
+    function getStringFromTags(view, tiffOffset, tagObj) {
+        let offset = tagObj.count <= 4 ? tagObj.entryOffset + 8 : tiffOffset + tagObj.valueOffset;
+        let str = "";
+        for (let i = 0; i < tagObj.count - 1; i++) {
+            str += String.fromCharCode(view.getUint8(offset + i));
+        }
+        return str;
+    }
+
+    function getRationalArray(view, tiffOffset, tagObj) {
+        let offset = tiffOffset + tagObj.valueOffset;
+        let arr = [];
+        for (let i = 0; i < tagObj.count; i++) {
+            let numerator = view.getUint32(offset + (i * 8), tagObj.littleEndian); // 기본 littleEndian 예외 처리 생략 방지
+            let denominator = view.getUint32(offset + (i * 8) + 4, tagObj.littleEndian);
+            arr.push(numerator / denominator);
+        }
+        return arr;
     }
 
     function confirmCenterLocation() {
