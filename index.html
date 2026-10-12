@@ -10,10 +10,9 @@
     <!-- EXIF 메타데이터 추출 라이브러리 -->
     <script src="https://cdn.jsdelivr.net/npm/exif-js"></script>
 
-    <!-- Firebase SDK (v9 Compat) - Firestore 및 Storage 포함 -->
+    <!-- Firebase SDK (v9 Compat) - Firestore 전용 -->
     <script src="https://www.gstatic.com/firebasejs/9.22.1/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/9.22.1/firebase-firestore-compat.js"></script>
-    <script src="https://www.gstatic.com/firebasejs/9.22.1/firebase-storage-compat.js"></script>
 
     <style>
         * { box-sizing: border-box; margin: 0; padding: 0; font-family: 'Pretendard', sans-serif; }
@@ -86,7 +85,7 @@
         }
         #roadview-close-btn:hover { background: #ef4444; border-color: #ef4444; transform: scale(1.1); }
 
-        /* 지도 중앙 고정 핀 및 컨펌 배너 */
+        /* 지도 중앙 고정 핀 및 확인 배너 */
         #center-pin-container {
             position: absolute; top: 50%; left: 50%; transform: translate(-50%, -100%);
             z-index: 25; pointer-events: none; display: none; flex-direction: column; align-items: center;
@@ -268,7 +267,7 @@
             <div class="scene-icon"><i class="fa-solid fa-layer-group"></i></div>
             <div class="scene-title">광명시 시간의 지층</div>
             <div class="scene-desc">
-                우리 소모임 멤버들이 각자 발견하고 수집한 광명의 옛 기억과 기록들을 고화질로 공유하는 공간입니다.
+                우리 소모임 멤버들이 각자 발견하고 수집한 광명의 옛 기억과 기록들을 공유하는 공간입니다.
             </div>
         </div>
 
@@ -347,7 +346,7 @@
             </div>
 
             <button class="upload-btn" onclick="document.getElementById('file-input').click()">
-                <i class="fa-solid fa-camera-retro"></i> 원본 기록 사진 올리기
+                <i class="fa-solid fa-camera-retro"></i> 발견한 기록 사진 올리기
             </button>
             <input type="file" id="file-input" accept="image/*" style="display:none;" onchange="handlePhotoSeedUpload(event)">
 
@@ -388,7 +387,6 @@
 
     firebase.initializeApp(firebaseConfig);
     const db = firebase.firestore();
-    const storage = firebase.storage();
 
     let map, geocoder;
     let roadview, roadviewClient;
@@ -399,7 +397,7 @@
     let currentLatLng = null;
 
     let userStrataStore = [];
-    let pendingFileObj = null;
+    let pendingImageBase64 = null;
     let pendingExtractedYear = null;
 
     let currentIntroScene = 1;
@@ -707,7 +705,7 @@
         const file = event.target.files[0];
         if (!file) return;
 
-        showLoading("사진 EXIF 데이터(날짜·위치)를 자동 분석 중...");
+        showLoading("사진 압축 및 메타데이터 분석 중...");
 
         EXIF.getData(file, function() {
             let extractedYear = "1985";
@@ -732,18 +730,45 @@
                 lng = convertDMSToDD(gpsLng, gpsLngRef);
             }
 
-            hideLoading();
+            // 브라우저에서 이미지 압축 (Firestore 용량 최적화)
+            const reader = new FileReader();
+            reader.onload = function(e) {
+                const img = new Image();
+                img.onload = function() {
+                    const canvas = document.createElement('canvas');
+                    const MAX_WIDTH = 900;
+                    const MAX_HEIGHT = 900;
+                    let width = img.width;
+                    let height = img.height;
 
-            if (lat && lng) {
-                alert("✨ 사진에 포함된 GPS 위치를 자동으로 인식했습니다!");
-                autoDetectDongAndSave(file, extractedYear, lat, lng);
-            } else {
-                pendingFileObj = file;
-                pendingExtractedYear = extractedYear;
-                alert("💡 사진에 위치 정보가 없습니다. 지도를 움직여 중앙의 붉은 핀을 원하는 위치에 맞춘 뒤 하단의 [이 위치로 지정] 버튼을 누르세요!");
-                document.getElementById('center-pin-container').style.display = 'flex';
-                document.getElementById('location-pick-banner').style.display = 'flex';
-            }
+                    if (width > height) {
+                        if (width > MAX_WIDTH) { height *= MAX_WIDTH / width; width = MAX_WIDTH; }
+                    } else {
+                        if (height > MAX_HEIGHT) { width *= MAX_HEIGHT / height; height = MAX_HEIGHT; }
+                    }
+
+                    canvas.width = width;
+                    canvas.height = height;
+                    const ctx = canvas.getContext('2d');
+                    ctx.drawImage(img, 0, 0, width, height);
+
+                    const compressedBase64 = canvas.toDataURL('image/jpeg', 0.7);
+                    hideLoading();
+
+                    if (lat && lng) {
+                        alert("✨ 사진에 포함된 GPS 위치를 자동으로 인식했습니다!");
+                        autoDetectDongAndSave(compressedBase64, extractedYear, lat, lng);
+                    } else {
+                        pendingImageBase64 = compressedBase64;
+                        pendingExtractedYear = extractedYear;
+                        alert("💡 사진에 위치 정보가 없습니다. 지도를 움직여 중앙의 붉은 핀을 원하는 위치에 맞춘 뒤 하단의 [이 위치로 지정] 버튼을 누르세요!");
+                        document.getElementById('center-pin-container').style.display = 'flex';
+                        document.getElementById('location-pick-banner').style.display = 'flex';
+                    }
+                };
+                img.src = e.target.result;
+            };
+            reader.readAsDataURL(file);
         });
         event.target.value = '';
     }
@@ -765,12 +790,12 @@
         document.getElementById('center-pin-container').style.display = 'none';
         document.getElementById('location-pick-banner').style.display = 'none';
 
-        autoDetectDongAndSave(pendingFileObj, pendingExtractedYear, lat, lng);
-        pendingFileObj = null;
+        autoDetectDongAndSave(pendingImageBase64, pendingExtractedYear, lat, lng);
+        pendingImageBase64 = null;
         pendingExtractedYear = null;
     }
 
-    function autoDetectDongAndSave(fileObj, defaultYear, lat, lng) {
+    function autoDetectDongAndSave(imgUrl, defaultYear, lat, lng) {
         showLoading("위치 주소를 분석하여 동(Dong)을 파악 중...");
 
         geocoder.coord2RegionCode(lng, lat, function(result, status) {
@@ -790,11 +815,11 @@
                 }
             }
             hideLoading();
-            promptUserUploadMetadata(fileObj, defaultYear, lat, lng, detectedDong);
+            promptUserUploadMetadata(imgUrl, defaultYear, lat, lng, detectedDong);
         });
     }
 
-    function promptUserUploadMetadata(fileObj, defaultYear, lat, lng, detectedDong) {
+    function promptUserUploadMetadata(imgUrl, defaultYear, lat, lng, detectedDong) {
         const title = prompt("기록 사진의 제목을 입력해주세요:", "");
         if (!title) return;
 
@@ -810,64 +835,31 @@
         const dataObj = {
             title, desc, year, author, password,
             dong: detectedDong || '철산동',
+            imgUrl,
+            lat,
+            lng,
             likes: 0,
-            comments: []
+            comments: [],
+            createdAt: Date.now()
         };
 
-        uploadImageToStorageAndSave(fileObj, dataObj, lat, lng);
+        saveRecordToFirestore(dataObj);
     }
 
-    function uploadImageToStorageAndSave(fileObj, dataObj, lat, lng) {
-        showLoading("고화질 원본 사진을 클라우드 저장소에 업로드 중...");
+    function saveRecordToFirestore(dataObj) {
+        showLoading("기록을 클라우드에 저장하는 중...");
 
-        const fileExtension = fileObj.name.split('.').pop();
-        const fileName = `records_${Date.now()}_${Math.random().toString(36).substring(2, 8)}.${fileExtension}`;
-        const storageRef = storage.ref(`strata_images/${fileName}`);
-
-        const uploadTask = storageRef.put(fileObj);
-
-        uploadTask.on('state_changed', 
-            (snapshot) => {
-                const progress = Math.round((snapshot.bytesTransferred / snapshot.totalBytes) * 100);
-                showLoading(`사진 업로드 중... (${progress}%)`);
-            }, 
-            (error) => {
+        const newId = 'record_' + Date.now();
+        db.collection("strata_records").doc(newId).set(dataObj)
+            .then(() => {
                 hideLoading();
-                alert("사진 업로드 실패: " + error.message);
-            }, 
-            () => {
-                uploadTask.snapshot.ref.getDownloadURL().then((downloadURL) => {
-                    showLoading("기록 데이터를 동기화 중...");
-
-                    const finalRecord = {
-                        title: dataObj.title,
-                        desc: dataObj.desc,
-                        year: dataObj.year,
-                        dong: dataObj.dong,
-                        author: dataObj.author,
-                        password: dataObj.password,
-                        imgUrl: downloadURL,
-                        lat: lat,
-                        lng: lng,
-                        likes: dataObj.likes,
-                        comments: dataObj.comments,
-                        createdAt: Date.now()
-                    };
-
-                    const newId = 'record_' + Date.now();
-                    db.collection("strata_records").doc(newId).set(finalRecord)
-                        .then(() => {
-                            hideLoading();
-                            alert(`[${finalRecord.dong}] 지역에 고화질 기록이 성공적으로 등록되었습니다!`);
-                            filterDong(finalRecord.dong);
-                        })
-                        .catch(err => {
-                            hideLoading();
-                            alert("데이터 저장 중 오류 발생: " + err.message);
-                        });
-                });
-            }
-        );
+                alert(`[${dataObj.dong}] 지역에 기록이 성공적으로 등록되었습니다!`);
+                filterDong(dataObj.dong);
+            })
+            .catch(err => {
+                hideLoading();
+                alert("저장 중 오류 발생 (사진 용량이 너무 클 수 있습니다): " + err.message);
+            });
     }
 
     function pressLike(id) {
