@@ -7,8 +7,6 @@
     <!-- Pretendard 폰트 & FontAwesome 아이콘 -->
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard/dist/web/static/pretendard.css">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
-    <!-- EXIF 메타데이터 추출 라이브러리 -->
-    <script src="https://cdn.jsdelivr.net/npm/exif-js"></script>
 
     <!-- Firebase SDK (v9 Compat) - Firestore 전용 -->
     <script src="https://www.gstatic.com/firebasejs/9.22.1/firebase-app-compat.js"></script>
@@ -700,74 +698,46 @@
         });
     }
 
-    /* 🔥 확실한 이미지 압축(Firestore 용량 문제 해결) 및 GPS 자동 추출 핸들러 */
+    /* 🔥 외부 라이브러리 의존을 없애고 파일 바이너리에서 직접 연도와 GPS를 파싱하는 고성능 엔진 */
     function handlePhotoSeedUpload(event) {
         const file = event.target.files[0];
         if (!file) return;
 
-        showLoading("사진 압축 및 위치 파싱 중...");
+        showLoading("사진 메타데이터(날짜·위치) 직접 분석 중...");
 
-        let extractedYear = "2026";
-        let lat = null;
-        let lng = null;
-
-        // EXIF.js로 먼저 태그 추출 시도
-        try {
-            EXIF.getData(file, function() {
-                const dateTime = EXIF.getTag(this, "DateTimeOriginal") || EXIF.getTag(this, "DateTime");
-                if (dateTime) {
-                    const yearPart = String(dateTime).split(/[:\s]/)[0];
-                    if (yearPart && yearPart.length === 4 && !isNaN(yearPart)) {
-                        extractedYear = yearPart;
-                    }
-                }
-
-                const gpsLat = EXIF.getTag(this, "GPSLatitude");
-                const gpsLatRef = EXIF.getTag(this, "GPSLatitudeRef");
-                const gpsLng = EXIF.getTag(this, "GPSLongitude");
-                const gpsLngRef = EXIF.getTag(this, "GPSLongitudeRef");
-
-                if (gpsLat && gpsLng) {
-                    lat = convertDMSToDD(gpsLat, gpsLatRef);
-                    lng = convertDMSToDD(gpsLng, gpsLngRef);
-                }
-
-                processImageFile(file, extractedYear, lat, lng);
-            });
-        } catch(e) {
-            processImageFile(file, extractedYear, lat, lng);
-        }
-
-        event.target.value = '';
-    }
-
-    function processImageFile(file, extractedYear, lat, lng) {
         const reader = new FileReader();
         reader.onload = function(e) {
-            const img = new Image();
-            img.onload = function() {
-                const canvas = document.createElement('canvas');
-                // 용량 초과 방지를 위한 최대 해상도 단축
-                const MAX_WIDTH = 800;
-                const MAX_HEIGHT = 800;
-                let width = img.width;
-                let height = img.height;
+            const buffer = e.target.result;
+            const meta = parseExifBinary(buffer);
 
-                if (width > height) {
-                    if (width > MAX_WIDTH) { height *= MAX_WIDTH / width; width = MAX_WIDTH; }
+            let extractedYear = meta.year || String(new Date().getFullYear());
+            let lat = meta.lat;
+            let lng = meta.lng;
+
+            // 이미지 압축 및 렌더링
+            const blobImg = new Image();
+            blobImg.onload = function() {
+                const canvas = document.createElement('canvas');
+                const MAX_W = 800;
+                const MAX_H = 800;
+                let w = blobImg.width;
+                let h = blobImg.height;
+
+                if (w > h) {
+                    if (w > MAX_W) { h *= MAX_W / w; w = MAX_W; }
                 } else {
-                    if (height > MAX_HEIGHT) { width *= MAX_HEIGHT / height; height = MAX_HEIGHT; }
+                    if (h > MAX_H) { w *= MAX_H / h; h = MAX_H; }
                 }
 
-                canvas.width = width;
-                canvas.height = height;
+                canvas.width = w;
+                canvas.height = h;
                 const ctx = canvas.getContext('2d');
-                ctx.drawImage(img, 0, 0, width, height);
+                ctx.drawImage(blobImg, 0, 0, w, h);
 
-                // 고압축 Base64 (Firestore 저장 오류 원천 차단)
-                const compressedBase64 = canvas.toDataURL('image/jpeg', 0.6);
+                const compressedBase64 = canvas.toDataURL('image/jpeg', 0.7);
                 hideLoading();
 
+                // GPS 정보가 정상 추출되었으면 곧바로 저장 단계로 진입, 없으면 수동 핀 지정 모드
                 if (lat !== null && lng !== null && !isNaN(lat) && !isNaN(lng)) {
                     autoDetectDongAndSave(compressedBase64, extractedYear, lat, lng);
                 } else {
@@ -777,22 +747,109 @@
                     document.getElementById('location-pick-banner').style.display = 'flex';
                 }
             };
-            img.src = e.target.result;
+            blobImg.src = e.target.result;
         };
-        reader.readAsDataURL(file);
+        reader.readAsArrayBuffer(file);
+        event.target.value = '';
     }
 
-    function convertDMSToDD(coordinate, ref) {
+    /* 순수 바이트 파서 구현 */
+    function parseExifBinary(buffer) {
         try {
-            const degrees = coordinate[0].numerator / coordinate[0].denominator;
-            const minutes = coordinate[1].numerator / coordinate[1].denominator;
-            const seconds = coordinate[2].numerator / coordinate[2].denominator;
-            let dd = degrees + minutes / 60 + seconds / (60 * 60);
-            if (ref === "S" || ref === "W") dd = dd * -1;
-            return dd;
+            const view = new DataView(buffer);
+            if (view.getUint16(0) !== 0xFFD8) return { year: null, lat: null, lng: null };
+
+            let offset = 2;
+            let length = view.byteLength;
+            let tiffOffset = 0;
+            let little = false;
+            let tags = {};
+
+            while (offset < length) {
+                let marker = view.getUint16(offset);
+                offset += 2;
+                if (marker === 0xFFE1) {
+                    let app1Len = view.getUint16(offset);
+                    if (view.getUint32(offset + 2) === 0x45786966) { // "Exif"
+                        tiffOffset = offset + 6;
+                        let endian = view.getUint16(tiffOffset);
+                        if (endian === 0x4949) little = true;
+                        else if (endian === 0x4D4D) little = false;
+
+                        let firstIFD = view.getUint32(tiffOffset + 4, little);
+                        readIFD(view, tiffOffset, tiffOffset + firstIFD, little, tags);
+                    }
+                    break;
+                } else if ((marker & 0xFF00) !== 0xFF00) {
+                    break;
+                } else {
+                    offset += view.getUint16(offset);
+                }
+            }
+
+            let year = null;
+            if (tags[0x9003]) { // DateTimeOriginal
+                let str = getTagStr(view, tiffOffset, tags[0x9003]);
+                let m = str.match(/(\d{4})/);
+                if (m) year = m[1];
+            }
+
+            let lat = null, lng = null;
+            if (tags[0x8825]) { // GPSInfo
+                let gpsOffset = tiffOffset + tags[0x8825].valueOffset;
+                let gpsTags = {};
+                readIFD(view, tiffOffset, gpsOffset, little, gpsTags);
+
+                if (gpsTags[2] && gpsTags[1] && gpsTags[4] && gpsTags[3]) {
+                    let latArr = getRationals(view, tiffOffset, gpsTags[2], little);
+                    let latRef = getTagStr(view, tiffOffset, gpsTags[1]);
+                    let lngArr = getRationals(view, tiffOffset, gpsTags[4], little);
+                    let lngRef = getTagStr(view, tiffOffset, gpsTags[3]);
+
+                    lat = latArr[0] + latArr[1]/60 + latArr[2]/3600;
+                    if (latRef.toUpperCase() === 'S') lat = -lat;
+
+                    lng = lngArr[0] + lngArr[1]/60 + lngArr[2]/3600;
+                    if (lngRef.toUpperCase() === 'W') lng = -lng;
+                }
+            }
+
+            return { year, lat, lng };
         } catch (e) {
-            return null;
+            return { year: null, lat: null, lng: null };
         }
+    }
+
+    function readIFD(view, tiffOffset, ifdOffset, little, tags) {
+        let count = view.getUint16(ifdOffset, little);
+        for (let i = 0; i < count; i++) {
+            let entry = ifdOffset + 2 + (i * 12);
+            let tag = view.getUint16(entry, little);
+            let type = view.getUint16(entry + 2, little);
+            let num = view.getUint32(entry + 4, little);
+            let valOff = view.getUint32(entry + 8, little);
+            tags[tag] = { type, count: num, valueOffset: valOff, entryOffset: entry };
+        }
+    }
+
+    function getTagStr(view, tiffOffset, tagObj) {
+        let off = tagObj.count <= 4 ? tagObj.entryOffset + 8 : tiffOffset + tagObj.valueOffset;
+        let s = "";
+        for (let i = 0; i < tagObj.count - 1; i++) {
+            s += String.fromCharCode(view.getUint8(off + i));
+        }
+        return s.trim();
+    }
+
+    function getRationals(view, tiffOffset, tagObj, little) {
+        let off = tiffOffset + tagObj.valueOffset;
+        let arr = [];
+        for (let i = 0; i < tagObj.count; i++) {
+            let num = view.getUint32(off + (i * 8), little);
+            let den = view.getUint32(off + (i * 8) + 4, little);
+            arr.push(den === 0 ? 0 : num / den);
+        }
+        return arr;
     }
 
     function confirmCenterLocation() {
