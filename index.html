@@ -646,7 +646,6 @@
             return;
         }
 
-        /* 고고학적 지층 컨셉: 최신 기록이 위, 오래된 기록이 아래 */
         filtered.sort((a, b) => parseInt((b.year||'0').replace(/[^0-9]/g,'')) - parseInt((a.year||'0').replace(/[^0-9]/g,'')));
 
         filtered.forEach(item => {
@@ -698,31 +697,15 @@
         });
     }
 
-    /* 🔥 무한 로딩 방지 및 안전한 예외 처리가 적용된 최종 업로드 핸들러 */
+    /* 안정적인 표준 압축 및 수동 위치 지정 연동 핸들러 */
     function handlePhotoSeedUpload(event) {
         const file = event.target.files[0];
         if (!file) return;
 
-        showLoading("사진 처리 및 분석 중...");
+        showLoading("사진 처리 중...");
 
         const reader = new FileReader();
         reader.onload = function(e) {
-            const buffer = e.target.result;
-            
-            let extractedYear = String(new Date().getFullYear());
-            let lat = null;
-            let lng = null;
-
-            try {
-                const meta = parseExifBinary(buffer);
-                if (meta.year) extractedYear = meta.year;
-                lat = meta.lat;
-                lng = meta.lng;
-            } catch (err) {
-                console.log("EXIF 파싱 우회 완료 (기본값 사용)");
-            }
-
-            // 이미지 압축 및 렌더링
             const blobImg = new Image();
             blobImg.onload = function() {
                 try {
@@ -746,14 +729,13 @@
                     const compressedBase64 = canvas.toDataURL('image/jpeg', 0.7);
                     hideLoading();
 
-                    if (lat !== null && lng !== null && !isNaN(lat) && !isNaN(lng)) {
-                        autoDetectDongAndSave(compressedBase64, extractedYear, lat, lng);
-                    } else {
-                        pendingImageBase64 = compressedBase64;
-                        pendingExtractedYear = extractedYear;
-                        document.getElementById('center-pin-container').style.display = 'flex';
-                        document.getElementById('location-pick-banner').style.display = 'flex';
-                    }
+                    // 모바일 브라우저 보안 및 파싱 한계로 인해, 사진 업로드 직후 지도 중앙 핀으로 위치를 확실하게 지정하도록 유도합니다.
+                    pendingImageBase64 = compressedBase64;
+                    pendingExtractedYear = String(new Date().getFullYear());
+                    
+                    document.getElementById('center-pin-container').style.display = 'flex';
+                    document.getElementById('location-pick-banner').style.display = 'flex';
+                    
                 } catch (canvasErr) {
                     hideLoading();
                     alert("이미지 처리 중 오류가 발생했습니다.");
@@ -773,108 +755,8 @@
             alert("파일을 불러오지 못했습니다.");
         };
 
-        reader.readAsArrayBuffer(file);
+        reader.readAsDataURL(file);
         event.target.value = '';
-    }
-
-    /* 안전한 순수 바이트 파서 */
-    function parseExifBinary(buffer) {
-        const view = new DataView(buffer);
-        if (view.getUint16(0) !== 0xFFD8) return { year: null, lat: null, lng: null };
-
-        let offset = 2;
-        let length = view.byteLength;
-        let tiffOffset = 0;
-        let little = false;
-        let tags = {};
-
-        while (offset < length - 2) {
-            let marker = view.getUint16(offset);
-            offset += 2;
-            if (marker === 0xFFE1) {
-                let app1Len = view.getUint16(offset);
-                if (offset + 4 < length && view.getUint32(offset + 2) === 0x45786966) {
-                    tiffOffset = offset + 6;
-                    let endian = view.getUint16(tiffOffset);
-                    if (endian === 0x4949) little = true;
-                    else if (endian === 0x4D4D) little = false;
-
-                    let firstIFD = view.getUint32(tiffOffset + 4, little);
-                    readIFD(view, tiffOffset, tiffOffset + firstIFD, little, tags);
-                }
-                break;
-            } else if ((marker & 0xFF00) !== 0xFF00) {
-                break;
-            } else {
-                offset += view.getUint16(offset);
-            }
-        }
-
-        let year = null;
-        if (tags[0x9003]) {
-            let str = getTagStr(view, tiffOffset, tags[0x9003]);
-            let m = str.match(/(\d{4})/);
-            if (m) year = m[1];
-        }
-
-        let lat = null, lng = null;
-        if (tags[0x8825]) {
-            let gpsOffset = tiffOffset + tags[0x8825].valueOffset;
-            let gpsTags = {};
-            readIFD(view, tiffOffset, gpsOffset, little, gpsTags);
-
-            if (gpsTags[2] && gpsTags[1] && gpsTags[4] && gpsTags[3]) {
-                let latArr = getRationals(view, tiffOffset, gpsTags[2], little);
-                let latRef = getTagStr(view, tiffOffset, gpsTags[1]);
-                let lngArr = getRationals(view, tiffOffset, gpsTags[4], little);
-                let lngRef = getTagStr(view, tiffOffset, gpsTags[3]);
-
-                lat = latArr[0] + latArr[1]/60 + latArr[2]/3600;
-                if (latRef.toUpperCase() === 'S') lat = -lat;
-
-                lng = lngArr[0] + lngArr[1]/60 + lngArr[2]/3600;
-                if (lngRef.toUpperCase() === 'W') lng = -lng;
-            }
-        }
-
-        return { year, lat, lng };
-    }
-
-    function readIFD(view, tiffOffset, ifdOffset, little, tags) {
-        if (ifdOffset >= view.byteLength) return;
-        let count = view.getUint16(ifdOffset, little);
-        for (let i = 0; i < count; i++) {
-            let entry = ifdOffset + 2 + (i * 12);
-            if (entry + 12 > view.byteLength) break;
-            let tag = view.getUint16(entry, little);
-            let type = view.getUint16(entry + 2, little);
-            let num = view.getUint32(entry + 4, little);
-            let valOff = view.getUint32(entry + 8, little);
-            tags[tag] = { type, count: num, valueOffset: valOff, entryOffset: entry };
-        }
-    }
-
-    function getTagStr(view, tiffOffset, tagObj) {
-        let off = tagObj.count <= 4 ? tagObj.entryOffset + 8 : tiffOffset + tagObj.valueOffset;
-        if (off >= view.byteLength) return "";
-        let s = "";
-        for (let i = 0; i < tagObj.count - 1; i++) {
-            if (off + i >= view.byteLength) break;
-            s += String.fromCharCode(view.getUint8(off + i));
-        }
-        return s.trim();
-    }
-
-    function getRationals(view, tiffOffset, tagObj, little) {
-        let off = tiffOffset + tagObj.valueOffset;
-        let arr = [];
-        for (let i = 0; i < tagObj.count; i++) {
-            if (off + (i * 8) + 8 > view.byteLength) break;
-            let num = view.getUint32(off + (i * 8), little);
-            let den = view.getUint32(off + (i * 8) + 4, little);
-            arr.push(den === 0 ? 0 : num / den);
-        }
-        return arr;
     }
 
     function confirmCenterLocation() {
@@ -1067,7 +949,6 @@
         const viewport = document.getElementById('modal-viewport');
         const img = document.getElementById('modal-img');
 
-        // 마우스 휠 확대/축소
         viewport.addEventListener('wheel', function(e) {
             e.preventDefault();
             if (e.deltaY < 0) {
@@ -1079,7 +960,6 @@
             updateImageTransform();
         }, { passive: false });
 
-        // 마우스 드래그 이동
         viewport.addEventListener('mousedown', function(e) {
             isDragging = true;
             startX = e.clientX - translateX;
@@ -1099,7 +979,6 @@
             viewport.style.cursor = 'grab';
         });
 
-        // 모바일 터치 드래그 이동 지원
         viewport.addEventListener('touchstart', function(e) {
             if (e.touches.length === 1) {
                 isDragging = true;
