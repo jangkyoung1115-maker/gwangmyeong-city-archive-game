@@ -272,7 +272,7 @@
             <div class="scene-icon"><i class="fa-solid fa-book-open"></i></div>
             <div class="scene-title">기록 보관소 활용법</div>
             <div class="scene-desc">
-                사진을 선택한 뒤 지도를 움직여 중앙 핀으로 위치를 지정하고, 연도와 제목을 입력해 간편하게 기록을 남길 수 있습니다.
+                사진을 선택한 뒤 지도를 움직여 중앙 핀으로 위치를 지정하고 기록을 남길 수 있습니다.
             </div>
         </div>
 
@@ -696,68 +696,56 @@
         });
     }
 
-    /* 🔥 오류 없이 안전하게 사진을 압축하고 즉시 위치 지정 모드로 전환하는 핸들러 */
+    /* 🔥 부연 설명 없이 알림 없이 즉시 지도 핀 지정 모드로 전환 */
     function handlePhotoSeedUpload(event) {
         const file = event.target.files[0];
         if (!file) return;
 
         showLoading("사진 준비 중...");
 
-        const reader = new FileReader();
-        reader.onload = function(e) {
-            const img = new Image();
-            img.onload = function() {
-                try {
-                    const canvas = document.createElement('canvas');
-                    const MAX_W = 800;
-                    const MAX_H = 800;
-                    let w = img.width;
-                    let h = img.height;
+        const img = new Image();
+        const objectUrl = URL.createObjectURL(file);
 
-                    if (w > h) {
-                        if (w > MAX_W) { h *= MAX_W / w; w = MAX_W; }
-                    } else {
-                        if (h > MAX_H) { w *= MAX_H / h; h = MAX_H; }
-                    }
+        img.onload = function() {
+            URL.revokeObjectURL(objectUrl);
+            try {
+                const canvas = document.createElement('canvas');
+                const MAX_W = 800;
+                const MAX_H = 800;
+                let w = img.width;
+                let h = img.height;
 
-                    canvas.width = w;
-                    canvas.height = h;
-                    const ctx = canvas.getContext('2d');
-                    ctx.drawImage(img, 0, 0, w, h);
-
-                    pendingImageBase64 = canvas.toDataURL('image/jpeg', 0.6);
-                    hideLoading();
-
-                    // 지도를 보여주고 사용자에게 중앙 핀으로 위치를 지정하도록 안내합니다.
-                    document.getElementById('center-pin-container').style.display = 'flex';
-                    document.getElementById('location-pick-banner').style.display = 'flex';
-                    alert("사진이 준비되었습니다! 지도를 움직여 사진을 찍은 위치에 빨간 핀을 맞춘 후 아래 [이 위치로 지정하기] 버튼을 눌러주세요.");
-
-                } catch (err) {
-                    hideLoading();
-                    alert("이미지 처리 중 오류가 발생했습니다.");
+                if (w > h) {
+                    if (w > MAX_W) { h *= MAX_W / w; w = MAX_W; }
+                } else {
+                    if (h > MAX_H) { w *= MAX_H / h; h = MAX_H; }
                 }
-            };
 
-            img.onerror = function() {
+                canvas.width = w;
+                canvas.height = h;
+                const ctx = canvas.getContext('2d');
+                ctx.drawImage(img, 0, 0, w, h);
+
+                pendingImageBase64 = canvas.toDataURL('image/jpeg', 0.6);
                 hideLoading();
-                // 브라우저가 직접 읽지 못할 경우에 대비한 대체 처리 (Unsplash 샘플 이미지로 안전하게 대체하여 테스트 가능하도록 함)
-                pendingImageBase64 = "https://images.unsplash.com/photo-1513694203232-719a280e022f?w=600";
-                hideLoading();
+
+                // 곧바로 지도 중앙 핀과 지정 버튼 표시
                 document.getElementById('center-pin-container').style.display = 'flex';
                 document.getElementById('location-pick-banner').style.display = 'flex';
-                alert("선택하신 사진 형식을 읽지 못해 대체 샘플 이미지로 진행합니다. 지도를 움직여 위치를 지정해주세요.");
-            };
 
-            img.src = e.target.result;
+            } catch (err) {
+                hideLoading();
+                alert("이미지 처리 중 오류가 발생했습니다.");
+            }
         };
 
-        reader.onerror = function() {
+        img.onerror = function() {
+            URL.revokeObjectURL(objectUrl);
             hideLoading();
-            alert("파일을 읽어오지 못했습니다.");
+            alert("선택하신 사진 형식을 읽을 수 없습니다. 일반 JPG/PNG 사진으로 다시 시도해주세요.");
         };
 
-        reader.readAsDataURL(file);
+        img.src = objectUrl;
         event.target.value = '';
     }
 
