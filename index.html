@@ -85,7 +85,7 @@
         }
         #roadview-close-btn:hover { background: #ef4444; border-color: #ef4444; transform: scale(1.1); }
 
-        /* 지도 중앙 고정 핀 및 확인 배너 */
+        /* 지도 중앙 고정 핀 및 깔끔해진 버튼 */
         #center-pin-container {
             position: absolute; top: 50%; left: 50%; transform: translate(-50%, -100%);
             z-index: 25; pointer-events: none; display: none; flex-direction: column; align-items: center;
@@ -95,15 +95,14 @@
 
         #location-pick-banner {
             position: absolute; bottom: 16px; left: 50%; transform: translateX(-50%);
-            background: rgba(15, 17, 21, 0.92); border: 1px solid #f59e0b; color: #fff; padding: 10px 18px;
-            border-radius: 24px; font-size: 0.78rem; font-weight: 700; z-index: 30;
-            display: none; box-shadow: 0 6px 20px rgba(0,0,0,0.7); align-items: center; gap: 10px;
+            background: rgba(15, 17, 21, 0.95); border: 1px solid #3b82f6; padding: 6px;
+            border-radius: 20px; z-index: 30; display: none; box-shadow: 0 6px 20px rgba(0,0,0,0.7);
         }
         .pick-confirm-btn {
-            background: #f59e0b; color: #000; border: none; padding: 5px 12px; border-radius: 14px;
-            font-size: 0.72rem; font-weight: 800; cursor: pointer;
+            background: #2563eb; color: #fff; border: none; padding: 6px 16px; border-radius: 16px;
+            font-size: 0.75rem; font-weight: 800; cursor: pointer; transition: background 0.2s;
         }
-        .pick-confirm-btn:hover { background: #d97706; }
+        .pick-confirm-btn:hover { background: #1d4ed8; }
 
         .info-card {
             background: #1c212b; color: #fff; padding: 8px; border-radius: 6px;
@@ -315,12 +314,11 @@
             &times;
         </button>
 
-        <!-- 지도 중앙 고정 핀 및 확인 배너 -->
+        <!-- 지도 중앙 고정 핀 및 미니멀한 확인 버튼 -->
         <div id="center-pin-container">
             <i class="fa-solid fa-location-dot"></i>
         </div>
         <div id="location-pick-banner">
-            <span>📍 지도를 움직여 핀을 위치에 맞춘 뒤 완료 버튼을 누르세요</span>
             <button class="pick-confirm-btn" onclick="confirmCenterLocation()">이 위치로 지정</button>
         </div>
     </div>
@@ -650,6 +648,7 @@
             return;
         }
 
+        /* 고고학적 지층 컨셉: 최신 기록이 위, 오래된 기록이 아래 */
         filtered.sort((a, b) => parseInt((b.year||'0').replace(/[^0-9]/g,'')) - parseInt((a.year||'0').replace(/[^0-9]/g,'')));
 
         filtered.forEach(item => {
@@ -705,36 +704,37 @@
         const file = event.target.files[0];
         if (!file) return;
 
-        showLoading("사진 압축 및 메타데이터 분석 중...");
+        showLoading("사진 메타데이터 분석 중...");
 
-        EXIF.getData(file, function() {
-            let extractedYear = "1985";
-            let lat = null;
-            let lng = null;
+        const reader = new FileReader();
+        reader.onload = function(e) {
+            const dataUrl = e.target.result;
+            const img = new Image();
+            
+            img.onload = function() {
+                EXIF.getData(img, function() {
+                    let extractedYear = "2026";
+                    let lat = null;
+                    let lng = null;
 
-            const dateTime = EXIF.getTag(this, "DateTimeOriginal");
-            if (dateTime) {
-                const yearPart = dateTime.split(/[:\s]/)[0];
-                if (yearPart && yearPart.length === 4) {
-                    extractedYear = yearPart;
-                }
-            }
+                    const dateTime = EXIF.getTag(this, "DateTimeOriginal") || EXIF.getTag(this, "DateTime");
+                    if (dateTime) {
+                        const yearPart = dateTime.split(/[:\s]/)[0];
+                        if (yearPart && yearPart.length === 4) {
+                            extractedYear = yearPart;
+                        }
+                    }
 
-            const gpsLat = EXIF.getTag(this, "GPSLatitude");
-            const gpsLatRef = EXIF.getTag(this, "GPSLatitudeRef");
-            const gpsLng = EXIF.getTag(this, "GPSLongitude");
-            const gpsLngRef = EXIF.getTag(this, "GPSLongitudeRef");
+                    const gpsLat = EXIF.getTag(this, "GPSLatitude");
+                    const gpsLatRef = EXIF.getTag(this, "GPSLatitudeRef");
+                    const gpsLng = EXIF.getTag(this, "GPSLongitude");
+                    const gpsLngRef = EXIF.getTag(this, "GPSLongitudeRef");
 
-            if (gpsLat && gpsLng) {
-                lat = convertDMSToDD(gpsLat, gpsLatRef);
-                lng = convertDMSToDD(gpsLng, gpsLngRef);
-            }
+                    if (gpsLat && gpsLng) {
+                        lat = convertDMSToDD(gpsLat, gpsLatRef);
+                        lng = convertDMSToDD(gpsLng, gpsLngRef);
+                    }
 
-            // 브라우저에서 이미지 압축 (Firestore 용량 최적화)
-            const reader = new FileReader();
-            reader.onload = function(e) {
-                const img = new Image();
-                img.onload = function() {
                     const canvas = document.createElement('canvas');
                     const MAX_WIDTH = 900;
                     const MAX_HEIGHT = 900;
@@ -752,24 +752,22 @@
                     const ctx = canvas.getContext('2d');
                     ctx.drawImage(img, 0, 0, width, height);
 
-                    const compressedBase64 = canvas.toDataURL('image/jpeg', 0.7);
+                    const compressedBase64 = canvas.toDataURL('image/jpeg', 0.75);
                     hideLoading();
 
                     if (lat && lng) {
-                        alert("✨ 사진에 포함된 GPS 위치를 자동으로 인식했습니다!");
                         autoDetectDongAndSave(compressedBase64, extractedYear, lat, lng);
                     } else {
                         pendingImageBase64 = compressedBase64;
                         pendingExtractedYear = extractedYear;
-                        alert("💡 사진에 위치 정보가 없습니다. 지도를 움직여 중앙의 붉은 핀을 원하는 위치에 맞춘 뒤 하단의 [이 위치로 지정] 버튼을 누르세요!");
                         document.getElementById('center-pin-container').style.display = 'flex';
                         document.getElementById('location-pick-banner').style.display = 'flex';
                     }
-                };
-                img.src = e.target.result;
+                });
             };
-            reader.readAsDataURL(file);
-        });
+            img.src = dataUrl;
+        };
+        reader.readAsDataURL(file);
         event.target.value = '';
     }
 
@@ -796,7 +794,7 @@
     }
 
     function autoDetectDongAndSave(imgUrl, defaultYear, lat, lng) {
-        showLoading("위치 주소를 분석하여 동(Dong)을 파악 중...");
+        showLoading("위치 분석 중...");
 
         geocoder.coord2RegionCode(lng, lat, function(result, status) {
             let detectedDong = "철산동";
@@ -824,7 +822,7 @@
         if (!title) return;
 
         const desc = prompt("발견한 내용이나 메모를 남겨주세요:", "");
-        const year = prompt("촬영된 연도를 입력해주세요:", defaultYear || "1985");
+        const year = prompt("촬영된 연도를 확인 또는 입력해주세요:", defaultYear || "2026");
         
         const author = prompt("도시기록가명을 입력해주세요:", "");
         if (!author) return;
@@ -858,7 +856,7 @@
             })
             .catch(err => {
                 hideLoading();
-                alert("저장 중 오류 발생 (사진 용량이 너무 클 수 있습니다): " + err.message);
+                alert("저장 중 오류 발생: " + err.message);
             });
     }
 
