@@ -86,13 +86,25 @@
         }
         #roadview-close-btn:hover { background: #ef4444; border-color: #ef4444; transform: scale(1.1); }
 
-        #location-pick-banner {
-            position: absolute; bottom: 12px; left: 50%; transform: translateX(-50%);
-            background: rgba(245, 158, 11, 0.95); color: #000; padding: 6px 14px;
-            border-radius: 20px; font-size: 0.75rem; font-weight: 800; z-index: 20;
-            display: none; box-shadow: 0 4px 12px rgba(0,0,0,0.5); animation: pulse 1.5s infinite;
+        /* 지도 중앙 고정 핀 및 컨펌 배너 */
+        #center-pin-container {
+            position: absolute; top: 50%; left: 50%; transform: translate(-50%, -100%);
+            z-index: 25; pointer-events: none; display: none; flex-direction: column; align-items: center;
         }
-        @keyframes pulse { 0% { opacity: 0.8; } 50% { opacity: 1; } 100% { opacity: 0.8; } }
+        #center-pin-container i { font-size: 2.2rem; color: #ef4444; filter: drop-shadow(0 4px 6px rgba(0,0,0,0.5)); animation: bouncePin 1s infinite alternate; }
+        @keyframes bouncePin { 0% { transform: translateY(0); } 100% { transform: translateY(-8px); } }
+
+        #location-pick-banner {
+            position: absolute; bottom: 16px; left: 50%; transform: translateX(-50%);
+            background: rgba(15, 17, 21, 0.92); border: 1px solid #f59e0b; color: #fff; padding: 10px 18px;
+            border-radius: 24px; font-size: 0.78rem; font-weight: 700; z-index: 30;
+            display: none; box-shadow: 0 6px 20px rgba(0,0,0,0.7); align-items: center; gap: 10px;
+        }
+        .pick-confirm-btn {
+            background: #f59e0b; color: #000; border: none; padding: 5px 12px; border-radius: 14px;
+            font-size: 0.72rem; font-weight: 800; cursor: pointer;
+        }
+        .pick-confirm-btn:hover { background: #d97706; }
 
         .info-card {
             background: #1c212b; color: #fff; padding: 8px; border-radius: 6px;
@@ -264,7 +276,7 @@
             <div class="scene-icon"><i class="fa-solid fa-book-open"></i></div>
             <div class="scene-title">기록 보관소 활용법</div>
             <div class="scene-desc">
-                사진을 올리면 촬영 날짜와 위치가 자동으로 인식되며, 연대별 슬라이더로 시간의 지층을 탐색할 수 있습니다.
+                사진을 올리면 촬영 날짜와 위치가 자동 인식되며, GPS가 없는 사진은 지도를 움직여 중앙 핀으로 직접 지정할 수 있습니다.
             </div>
         </div>
 
@@ -304,7 +316,14 @@
             &times;
         </button>
 
-        <div id="location-pick-banner">📍 지도를 클릭하여 사진이 위치할 장소를 지정해주세요!</div>
+        <!-- 지도 중앙 고정 핀 및 확인 배너 -->
+        <div id="center-pin-container">
+            <i class="fa-solid fa-location-dot"></i>
+        </div>
+        <div id="location-pick-banner">
+            <span>📍 지도를 움직여 핀을 위치에 맞춘 뒤 완료 버튼을 누르세요</span>
+            <button class="pick-confirm-btn" onclick="confirmCenterLocation()">이 위치로 지정</button>
+        </div>
     </div>
 
     <div id="content-body">
@@ -380,8 +399,8 @@
     let currentLatLng = null;
 
     let userStrataStore = [];
-    let pendingUploadData = null;
-    let tempPickMarker = null;
+    let pendingFileObj = null;
+    let pendingExtractedYear = null;
 
     let currentIntroScene = 1;
     const totalIntroScenes = 3;
@@ -477,36 +496,6 @@
 
         kakao.maps.event.addListener(map, 'center_changed', function() {
             currentLatLng = map.getCenter();
-        });
-
-        kakao.maps.event.addListener(map, 'click', function(mouseEvent) {
-            if (!pendingUploadData) return;
-
-            const clickedLatLng = mouseEvent.latLng;
-            
-            if (!tempPickMarker) {
-                tempPickMarker = new kakao.maps.Marker({
-                    position: clickedLatLng,
-                    map: map
-                });
-            } else {
-                tempPickMarker.setPosition(clickedLatLng);
-            }
-
-            if (confirm("이 위치에 기록을 등록하시겠습니까?")) {
-                const finalLat = clickedLatLng.getLat();
-                const finalLng = clickedLatLng.getLng();
-                
-                if (tempPickMarker) {
-                    tempPickMarker.setMap(null);
-                    tempPickMarker = null;
-                }
-                document.getElementById('location-pick-banner').style.display = 'none';
-
-                // 좌표로부터 동(Dong) 이름 자동 역추적 후 저장
-                autoDetectDongAndSave(pendingUploadData.fileObj, pendingUploadData, finalLat, finalLng);
-                pendingUploadData = null;
-            }
         });
 
         roadview = new kakao.maps.Roadview(document.getElementById('roadview'));
@@ -714,7 +703,6 @@
         });
     }
 
-    /* EXIF 메타데이터(날짜 및 GPS) 자동 추출 */
     function handlePhotoSeedUpload(event) {
         const file = event.target.files[0];
         if (!file) return;
@@ -722,7 +710,7 @@
         showLoading("사진 EXIF 데이터(날짜·위치)를 자동 분석 중...");
 
         EXIF.getData(file, function() {
-            let extractedYear = "1985"; // 기본값 (옛 사진 감성)
+            let extractedYear = "1985";
             let lat = null;
             let lng = null;
 
@@ -745,7 +733,17 @@
             }
 
             hideLoading();
-            promptUserUploadMetadata(file, extractedYear, lat, lng);
+
+            if (lat && lng) {
+                alert("✨ 사진에 포함된 GPS 위치를 자동으로 인식했습니다!");
+                autoDetectDongAndSave(file, extractedYear, lat, lng);
+            } else {
+                pendingFileObj = file;
+                pendingExtractedYear = extractedYear;
+                alert("💡 사진에 위치 정보가 없습니다. 지도를 움직여 중앙의 붉은 핀을 원하는 위치에 맞춘 뒤 하단의 [이 위치로 지정] 버튼을 누르세요!");
+                document.getElementById('center-pin-container').style.display = 'flex';
+                document.getElementById('location-pick-banner').style.display = 'flex';
+            }
         });
         event.target.value = '';
     }
@@ -759,47 +757,26 @@
         return dd;
     }
 
-    function promptUserUploadMetadata(fileObj, defaultYear, lat, lng) {
-        const title = prompt("기록 사진의 제목을 입력해주세요:", "광명시 발견 기록");
-        if (!title) return;
+    function confirmCenterLocation() {
+        const center = map.getCenter();
+        const lat = center.getLat();
+        const lng = center.getLng();
 
-        const desc = prompt("발견한 내용이나 메모를 남겨주세요:", "이곳의 옛 모습 관련 기록입니다.");
-        const year = prompt("촬영된 연도를 확인 또는 수정해주세요:", defaultYear);
-        
-        const author = prompt("도시기록가명을 입력해주세요:", "도시기록가");
-        if (!author) return;
+        document.getElementById('center-pin-container').style.display = 'none';
+        document.getElementById('location-pick-banner').style.display = 'none';
 
-        const password = prompt("기록 관리를 위한 비밀번호(4자리)를 입력해주세요:", "1234");
-        if (!password) return;
-
-        const metaData = {
-            title, desc, year, author, password,
-            fileObj,
-            likes: 0,
-            comments: []
-        };
-
-        // 사진에 GPS가 포함되어 있는 경우 자동 위치 지정 완료
-        if (lat && lng) {
-            alert("✨ 사진에 포함된 GPS 위치를 자동으로 인식했습니다!");
-            autoDetectDongAndSave(fileObj, metaData, lat, lng);
-        } else {
-            // GPS가 없는 경우에만 사용자가 지도 클릭하도록 유도
-            pendingUploadData = metaData;
-            alert("💡 사진에 위치 정보가 없습니다. 지도에서 사진이 위치할 장소를 클릭해주세요!");
-            document.getElementById('location-pick-banner').style.display = 'block';
-        }
+        autoDetectDongAndSave(pendingFileObj, pendingExtractedYear, lat, lng);
+        pendingFileObj = null;
+        pendingExtractedYear = null;
     }
 
-    /* 좌표를 기반으로 광명시 동 이름을 주소검색으로 자동 판별 후 저장 */
-    function autoDetectDongAndSave(fileObj, dataObj, lat, lng) {
+    function autoDetectDongAndSave(fileObj, defaultYear, lat, lng) {
         showLoading("위치 주소를 분석하여 동(Dong)을 파악 중...");
 
         geocoder.coord2RegionCode(lng, lat, function(result, status) {
-            let detectedDong = "철산동"; // 기본값
+            let detectedDong = "철산동";
             if (status === kakao.maps.services.Status.OK) {
                 for (let i = 0; i < result.length; i++) {
-                    // 행정동 또는 법정동 이름 추출
                     if (result[i].region_type === 'H' || result[i].region_type === 'B') {
                         const name = result[i].address_name;
                         if (name.includes('철산')) { detectedDong = '철산동'; break; }
@@ -812,9 +789,32 @@
                     }
                 }
             }
-            dataObj.dong = detectedDong;
-            uploadImageToStorageAndSave(fileObj, dataObj, lat, lng);
+            hideLoading();
+            promptUserUploadMetadata(fileObj, defaultYear, lat, lng, detectedDong);
         });
+    }
+
+    function promptUserUploadMetadata(fileObj, defaultYear, lat, lng, detectedDong) {
+        const title = prompt("기록 사진의 제목을 입력해주세요:", "");
+        if (!title) return;
+
+        const desc = prompt("발견한 내용이나 메모를 남겨주세요:", "");
+        const year = prompt("촬영된 연도를 입력해주세요:", defaultYear || "1985");
+        
+        const author = prompt("도시기록가명을 입력해주세요:", "");
+        if (!author) return;
+
+        const password = prompt("기록 관리를 위한 비밀번호(4자리)를 입력해주세요:", "");
+        if (!password) return;
+
+        const dataObj = {
+            title, desc, year, author, password,
+            dong: detectedDong || '철산동',
+            likes: 0,
+            comments: []
+        };
+
+        uploadImageToStorageAndSave(fileObj, dataObj, lat, lng);
     }
 
     function uploadImageToStorageAndSave(fileObj, dataObj, lat, lng) {
@@ -828,8 +828,8 @@
 
         uploadTask.on('state_changed', 
             (snapshot) => {
-                const progress = (snapshot.bytesTransferred / snapshot.totalBytes) * 100;
-                showLoading(`사진 업로드 중... (${Math.round(progress)}%)`);
+                const progress = Math.round((snapshot.bytesTransferred / snapshot.totalBytes) * 100);
+                showLoading(`사진 업로드 중... (${progress}%)`);
             }, 
             (error) => {
                 hideLoading();
@@ -843,7 +843,7 @@
                         title: dataObj.title,
                         desc: dataObj.desc,
                         year: dataObj.year,
-                        dong: dataObj.dong || '철산동',
+                        dong: dataObj.dong,
                         author: dataObj.author,
                         password: dataObj.password,
                         imgUrl: downloadURL,
