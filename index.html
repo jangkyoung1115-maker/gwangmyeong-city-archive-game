@@ -700,7 +700,7 @@
         });
     }
 
-    /* EXIF 안정적 파싱 및 이미지 압축 */
+    /* 🔥 핵심 수정: 원본 파일(File 객체)에서 먼저 EXIF를 안전하게 추출한 뒤 압축 진행 */
     function handlePhotoSeedUpload(event) {
         const file = event.target.files[0];
         if (!file) return;
@@ -730,6 +730,7 @@
                 lng = convertDMSToDD(gpsLng, gpsLngRef);
             }
 
+            // EXIF 추출 완료 후 이미지 압축 진행
             const reader = new FileReader();
             reader.onload = function(e) {
                 const img = new Image();
@@ -981,7 +982,7 @@
             updateImageTransform();
         }, { passive: false });
 
-        // 마우스 드래그 이동 (확대된 상태가 아니어도 편하게 이동 가능하도록 개선)
+        // 마우스 드래그 이동
         viewport.addEventListener('mousedown', function(e) {
             isDragging = true;
             startX = e.clientX - translateX;
