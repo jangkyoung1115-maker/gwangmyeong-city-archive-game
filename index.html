@@ -7,6 +7,8 @@
     <!-- Pretendard 폰트 & FontAwesome 아이콘 -->
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard/dist/web/static/pretendard.css">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+    <!-- EXIF 메타데이터 추출 라이브러리 -->
+    <script src="https://cdn.jsdelivr.net/npm/exif-js"></script>
 
     <!-- Firebase SDK (v9 Compat) - Firestore 전용 -->
     <script src="https://www.gstatic.com/firebasejs/9.22.1/firebase-app-compat.js"></script>
@@ -698,105 +700,86 @@
         });
     }
 
-    /* 🔥 외부 라이브러리 없이 바이너리 데이터를 직접 파싱하여 EXIF(날짜/GPS)를 확실하게 추출하는 내장 엔진 */
+    /* 🔥 검증된 원본 EXIF 파싱 및 이미지 압축 연동 구조 */
     function handlePhotoSeedUpload(event) {
         const file = event.target.files[0];
         if (!file) return;
 
         showLoading("사진 메타데이터(날짜·위치) 분석 중...");
 
-        const reader = new FileReader();
-        reader.onload = function(e) {
-            const buffer = e.target.result;
-            const exifData = extractExifDirectly(buffer);
-
-            let extractedYear = exifData.year || "2026";
-            let lat = exifData.lat;
-            let lng = exifData.lng;
-
-            // 이미지 압축 진행
-            const blobUrlImg = new Image();
-            blobUrlImg.onload = function() {
-                const canvas = document.createElement('canvas');
-                const MAX_WIDTH = 1000;
-                const MAX_HEIGHT = 1000;
-                let width = blobUrlImg.width;
-                let height = blobUrlImg.height;
-
-                if (width > height) {
-                    if (width > MAX_WIDTH) { height *= MAX_WIDTH / width; width = MAX_WIDTH; }
-                } else {
-                    if (height > MAX_HEIGHT) { width *= MAX_HEIGHT / height; height = MAX_HEIGHT; }
-                }
-
-                canvas.width = width;
-                canvas.height = height;
-                const ctx = canvas.getContext('2d');
-                ctx.drawImage(blobUrlImg, 0, 0, width, height);
-
-                const compressedBase64 = canvas.toDataURL('image/jpeg', 0.8);
-                hideLoading();
-
-                if (lat !== null && lng !== null && !isNaN(lat) && !isNaN(lng)) {
-                    autoDetectDongAndSave(compressedBase64, extractedYear, lat, lng);
-                } else {
-                    pendingImageBase64 = compressedBase64;
-                    pendingExtractedYear = extractedYear;
-                    document.getElementById('center-pin-container').style.display = 'flex';
-                    document.getElementById('location-pick-banner').style.display = 'flex';
-                }
-            };
-            blobUrlImg.src = e.target.result;
-        };
-        reader.readAsDataURL(file);
-        event.target.value = '';
-    }
-
-    /* 바이너리 직접 분석 파서 */
-    function extractExifDirectly(arrayBuffer) {
-        try {
-            const dataView = new DataView(arrayBuffer);
-            let offset = 2;
-            let length = dataView.byteLength;
-            let exifString = "";
-
-            while (offset < length) {
-                let marker = dataView.getUint16(offset);
-                offset += 2;
-                if (marker === 0xFFE1) {
-                    let app1Length = dataView.getUint16(offset);
-                    let exifHeader = "";
-                    for (let i = 0; i < 4; i++) {
-                        exifHeader += String.fromCharCode(dataView.getUint8(offset + 2 + i));
-                    }
-                    if (exifHeader === "Exif") {
-                        for (let i = 0; i < app1Length - 2; i++) {
-                            exifString += String.fromCharCode(dataView.getUint8(offset + 2 + i));
-                        }
-                    }
-                    break;
-                } else if ((marker & 0xFF00) !== 0xFF00) {
-                    break;
-                } else {
-                    offset += dataView.getUint16(offset);
-                }
-            }
-
-            let year = null;
+        EXIF.getData(file, function() {
+            let extractedYear = "2026";
             let lat = null;
             let lng = null;
 
-            // 정규식을 통해 날짜(YYYY:MM:DD 등) 패턴 탐색
-            const dateMatch = exifString.match(/(\d{4})[:\/](\d{2})[:\/](\d{2})/);
-            if (dateMatch) {
-                year = dateMatch[1];
+            const dateTime = EXIF.getTag(this, "DateTimeOriginal") || EXIF.getTag(this, "DateTime");
+            if (dateTime) {
+                const yearPart = String(dateTime).split(/[:\s]/)[0];
+                if (yearPart && yearPart.length === 4 && !isNaN(yearPart)) {
+                    extractedYear = yearPart;
+                }
             }
 
-            // EXIF 스트링 내부에 위경도 데이터 태그(GPSLatitude 등)가 포함되어 있는지 대략적인 바이트 패턴 확인용 대체 장치
-            // 만약 브라우저 표준 EXIF 개체 파싱을 보조하기 위해 EXIF.js도 백업으로 병행 실행
-            return { year, lat, lng };
+            const gpsLat = EXIF.getTag(this, "GPSLatitude");
+            const gpsLatRef = EXIF.getTag(this, "GPSLatitudeRef");
+            const gpsLng = EXIF.getTag(this, "GPSLongitude");
+            const gpsLngRef = EXIF.getTag(this, "GPSLongitudeRef");
+
+            if (gpsLat && gpsLng) {
+                lat = convertDMSToDD(gpsLat, gpsLatRef);
+                lng = convertDMSToDD(gpsLng, gpsLngRef);
+            }
+
+            const reader = new FileReader();
+            reader.onload = function(e) {
+                const img = new Image();
+                img.onload = function() {
+                    const canvas = document.createElement('canvas');
+                    const MAX_WIDTH = 1000;
+                    const MAX_HEIGHT = 1000;
+                    let width = img.width;
+                    let height = img.height;
+
+                    if (width > height) {
+                        if (width > MAX_WIDTH) { height *= MAX_WIDTH / width; width = MAX_WIDTH; }
+                    } else {
+                        if (height > MAX_HEIGHT) { width *= MAX_HEIGHT / height; height = MAX_HEIGHT; }
+                    }
+
+                    canvas.width = width;
+                    canvas.height = height;
+                    const ctx = canvas.getContext('2d');
+                    ctx.drawImage(img, 0, 0, width, height);
+
+                    const compressedBase64 = canvas.toDataURL('image/jpeg', 0.8);
+                    hideLoading();
+
+                    if (lat !== null && lng !== null && !isNaN(lat) && !isNaN(lng)) {
+                        autoDetectDongAndSave(compressedBase64, extractedYear, lat, lng);
+                    } else {
+                        pendingImageBase64 = compressedBase64;
+                        pendingExtractedYear = extractedYear;
+                        document.getElementById('center-pin-container').style.display = 'flex';
+                        document.getElementById('location-pick-banner').style.display = 'flex';
+                    }
+                };
+                img.src = e.target.result;
+            };
+            reader.readAsDataURL(file);
+        });
+        event.target.value = '';
+    }
+
+    function convertDMSToDD(coordinate, ref) {
+        try {
+            const degrees = coordinate[0].numerator / coordinate[0].denominator;
+            const minutes = coordinate[1].numerator / coordinate[1].denominator;
+            const seconds = coordinate[2].numerator / coordinate[2].denominator;
+            let dd = degrees + minutes / 60 + seconds / (60 * 60);
+            if (ref === "S" || ref === "W") dd = dd * -1;
+            return dd;
         } catch (e) {
-            return { year: null, lat: null, lng: null };
+            return null;
         }
     }
 
