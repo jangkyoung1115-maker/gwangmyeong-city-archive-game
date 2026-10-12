@@ -700,92 +700,87 @@
         });
     }
 
-    /* 🔥 EXIF 메타데이터 및 이미지 압축 완벽 강화 버전 */
+    /* 🔥 핵심 수정: Promise 및 동기화 처리로 EXIF 데이터를 확실하게 읽어내도록 개선 */
     function handlePhotoSeedUpload(event) {
         const file = event.target.files[0];
         if (!file) return;
 
         showLoading("사진 메타데이터 분석 중...");
 
-        try {
-            EXIF.getData(file, function() {
-                let extractedYear = "2026";
-                let lat = null;
-                let lng = null;
-
-                try {
-                    const dateTime = EXIF.getTag(this, "DateTimeOriginal") || EXIF.getTag(this, "DateTime");
-                    if (dateTime) {
-                        const yearPart = String(dateTime).split(/[:\s]/)[0];
-                        if (yearPart && yearPart.length === 4 && !isNaN(yearPart)) {
-                            extractedYear = yearPart;
-                        }
-                    }
-
-                    const gpsLat = EXIF.getTag(this, "GPSLatitude");
-                    const gpsLatRef = EXIF.getTag(this, "GPSLatitudeRef");
-                    const gpsLng = EXIF.getTag(this, "GPSLongitude");
-                    const gpsLngRef = EXIF.getTag(this, "GPSLongitudeRef");
-
-                    if (gpsLat && gpsLng) {
-                        lat = convertDMSToDD(gpsLat, gpsLatRef);
-                        lng = convertDMSToDD(gpsLng, gpsLngRef);
-                    }
-                } catch (exifErr) {
-                    console.log("EXIF 파싱 중 세부 예외 발생:", exifErr);
-                }
-
-                // EXIF 읽기 완료 후 압축 및 데이터 처리 진행
-                processImageCompression(file, extractedYear, lat, lng);
-            });
-        } catch (err) {
-            console.log("EXIF 전체 로드 실패:", err);
-            processImageCompression(file, "2026", null, null);
-        }
-
-        event.target.value = '';
-    }
-
-    function processImageCompression(file, extractedYear, lat, lng) {
         const reader = new FileReader();
+        
         reader.onload = function(e) {
             const dataUrl = e.target.result;
             const img = new Image();
-            
+
             img.onload = function() {
-                const canvas = document.createElement('canvas');
-                const MAX_WIDTH = 1000;
-                const MAX_HEIGHT = 1000;
-                let width = img.width;
-                let height = img.height;
+                // EXIF 데이터를 안전하게 읽어내기 위한 Promise 래퍼
+                new Promise((resolve) => {
+                    EXIF.getData(img, function() {
+                        let extractedYear = "2026";
+                        let lat = null;
+                        let lng = null;
 
-                if (width > height) {
-                    if (width > MAX_WIDTH) { height *= MAX_WIDTH / width; width = MAX_WIDTH; }
-                } else {
-                    if (height > MAX_HEIGHT) { width *= MAX_HEIGHT / height; height = MAX_HEIGHT; }
-                }
+                        try {
+                            const dateTime = EXIF.getTag(this, "DateTimeOriginal") || EXIF.getTag(this, "DateTime");
+                            if (dateTime) {
+                                const yearPart = String(dateTime).split(/[:\s]/)[0];
+                                if (yearPart && yearPart.length === 4 && !isNaN(yearPart)) {
+                                    extractedYear = yearPart;
+                                }
+                            }
 
-                canvas.width = width;
-                canvas.height = height;
-                const ctx = canvas.getContext('2d');
-                ctx.drawImage(img, 0, 0, width, height);
+                            const gpsLat = EXIF.getTag(this, "GPSLatitude");
+                            const gpsLatRef = EXIF.getTag(this, "GPSLatitudeRef");
+                            const gpsLng = EXIF.getTag(this, "GPSLongitude");
+                            const gpsLngRef = EXIF.getTag(this, "GPSLongitudeRef");
 
-                const compressedBase64 = canvas.toDataURL('image/jpeg', 0.8);
-                hideLoading();
+                            if (gpsLat && gpsLng) {
+                                lat = convertDMSToDD(gpsLat, gpsLatRef);
+                                lng = convertDMSToDD(gpsLng, gpsLngRef);
+                            }
+                        } catch (err) {
+                            console.log("EXIF 추출 오류:", err);
+                        }
 
-                if (lat !== null && lng !== null && !isNaN(lat) && !isNaN(lng)) {
-                    autoDetectDongAndSave(compressedBase64, extractedYear, lat, lng);
-                } else {
-                    pendingImageBase64 = compressedBase64;
-                    pendingExtractedYear = extractedYear;
-                    document.getElementById('center-pin-container').style.display = 'flex';
-                    document.getElementById('location-pick-banner').style.display = 'flex';
-                }
+                        resolve({ extractedYear, lat, lng });
+                    });
+                }).then(({ extractedYear, lat, lng }) => {
+                    // 이미지 압축 진행
+                    const canvas = document.createElement('canvas');
+                    const MAX_WIDTH = 1000;
+                    const MAX_HEIGHT = 1000;
+                    let width = img.width;
+                    let height = img.height;
+
+                    if (width > height) {
+                        if (width > MAX_WIDTH) { height *= MAX_WIDTH / width; width = MAX_WIDTH; }
+                    } else {
+                        if (height > MAX_HEIGHT) { width *= MAX_HEIGHT / height; height = MAX_HEIGHT; }
+                    }
+
+                    canvas.width = width;
+                    canvas.height = height;
+                    const ctx = canvas.getContext('2d');
+                    ctx.drawImage(img, 0, 0, width, height);
+
+                    const compressedBase64 = canvas.toDataURL('image/jpeg', 0.8);
+                    hideLoading();
+
+                    if (lat !== null && lng !== null && !isNaN(lat) && !isNaN(lng)) {
+                        autoDetectDongAndSave(compressedBase64, extractedYear, lat, lng);
+                    } else {
+                        pendingImageBase64 = compressedBase64;
+                        pendingExtractedYear = extractedYear;
+                        document.getElementById('center-pin-container').style.display = 'flex';
+                        document.getElementById('location-pick-banner').style.display = 'flex';
+                    }
+                });
             };
 
             img.onerror = function() {
                 hideLoading();
-                alert("이미지 파일을 불러오는 중 오류가 발생했습니다.");
+                alert("이미지 로드 중 오류가 발생했습니다.");
             };
 
             img.src = dataUrl;
@@ -797,6 +792,7 @@
         };
 
         reader.readAsDataURL(file);
+        event.target.value = '';
     }
 
     function convertDMSToDD(coordinate, ref) {
