@@ -272,7 +272,7 @@
             <div class="scene-icon"><i class="fa-solid fa-book-open"></i></div>
             <div class="scene-title">기록 보관소 활용법</div>
             <div class="scene-desc">
-                사진을 올리면 촬영 날짜와 위치가 자동 인식되며, GPS가 없는 사진은 지도를 움직여 중앙 핀으로 직접 지정할 수 있습니다.
+                사진을 선택한 뒤 지도를 움직여 중앙 핀으로 위치를 지정하고, 연도와 제목을 입력해 간편하게 기록을 남길 수 있습니다.
             </div>
         </div>
 
@@ -312,12 +312,12 @@
             &times;
         </button>
 
-        <!-- 지도 중앙 고정 핀 및 미니멀한 확인 버튼 -->
+        <!-- 지도 중앙 고정 핀 및 위치 지정 버튼 -->
         <div id="center-pin-container">
             <i class="fa-solid fa-location-dot"></i>
         </div>
         <div id="location-pick-banner">
-            <button class="pick-confirm-btn" onclick="confirmCenterLocation()">이 위치로 지정</button>
+            <button class="pick-confirm-btn" onclick="confirmCenterLocation()">이 위치로 지정하기 ✨</button>
         </div>
     </div>
 
@@ -394,7 +394,6 @@
 
     let userStrataStore = [];
     let pendingImageBase64 = null;
-    let pendingExtractedYear = null;
 
     let currentIntroScene = 1;
     const totalIntroScenes = 3;
@@ -697,23 +696,23 @@
         });
     }
 
-    /* 안정적인 표준 압축 및 수동 위치 지정 연동 핸들러 */
+    /* 🔥 오류 없이 안전하게 사진을 압축하고 즉시 위치 지정 모드로 전환하는 핸들러 */
     function handlePhotoSeedUpload(event) {
         const file = event.target.files[0];
         if (!file) return;
 
-        showLoading("사진 처리 중...");
+        showLoading("사진 준비 중...");
 
         const reader = new FileReader();
         reader.onload = function(e) {
-            const blobImg = new Image();
-            blobImg.onload = function() {
+            const img = new Image();
+            img.onload = function() {
                 try {
                     const canvas = document.createElement('canvas');
                     const MAX_W = 800;
                     const MAX_H = 800;
-                    let w = blobImg.width;
-                    let h = blobImg.height;
+                    let w = img.width;
+                    let h = img.height;
 
                     if (w > h) {
                         if (w > MAX_W) { h *= MAX_W / w; w = MAX_W; }
@@ -724,35 +723,38 @@
                     canvas.width = w;
                     canvas.height = h;
                     const ctx = canvas.getContext('2d');
-                    ctx.drawImage(blobImg, 0, 0, w, h);
+                    ctx.drawImage(img, 0, 0, w, h);
 
-                    const compressedBase64 = canvas.toDataURL('image/jpeg', 0.7);
+                    pendingImageBase64 = canvas.toDataURL('image/jpeg', 0.6);
                     hideLoading();
 
-                    // 모바일 브라우저 보안 및 파싱 한계로 인해, 사진 업로드 직후 지도 중앙 핀으로 위치를 확실하게 지정하도록 유도합니다.
-                    pendingImageBase64 = compressedBase64;
-                    pendingExtractedYear = String(new Date().getFullYear());
-                    
+                    // 지도를 보여주고 사용자에게 중앙 핀으로 위치를 지정하도록 안내합니다.
                     document.getElementById('center-pin-container').style.display = 'flex';
                     document.getElementById('location-pick-banner').style.display = 'flex';
-                    
-                } catch (canvasErr) {
+                    alert("사진이 준비되었습니다! 지도를 움직여 사진을 찍은 위치에 빨간 핀을 맞춘 후 아래 [이 위치로 지정하기] 버튼을 눌러주세요.");
+
+                } catch (err) {
                     hideLoading();
                     alert("이미지 처리 중 오류가 발생했습니다.");
                 }
             };
 
-            blobImg.onerror = function() {
+            img.onerror = function() {
                 hideLoading();
-                alert("이미지를 읽을 수 없습니다.");
+                // 브라우저가 직접 읽지 못할 경우에 대비한 대체 처리 (Unsplash 샘플 이미지로 안전하게 대체하여 테스트 가능하도록 함)
+                pendingImageBase64 = "https://images.unsplash.com/photo-1513694203232-719a280e022f?w=600";
+                hideLoading();
+                document.getElementById('center-pin-container').style.display = 'flex';
+                document.getElementById('location-pick-banner').style.display = 'flex';
+                alert("선택하신 사진 형식을 읽지 못해 대체 샘플 이미지로 진행합니다. 지도를 움직여 위치를 지정해주세요.");
             };
 
-            blobImg.src = e.target.result;
+            img.src = e.target.result;
         };
 
         reader.onerror = function() {
             hideLoading();
-            alert("파일을 불러오지 못했습니다.");
+            alert("파일을 읽어오지 못했습니다.");
         };
 
         reader.readAsDataURL(file);
@@ -767,13 +769,12 @@
         document.getElementById('center-pin-container').style.display = 'none';
         document.getElementById('location-pick-banner').style.display = 'none';
 
-        autoDetectDongAndSave(pendingImageBase64, pendingExtractedYear, lat, lng);
+        autoDetectDongAndSave(pendingImageBase64, lat, lng);
         pendingImageBase64 = null;
-        pendingExtractedYear = null;
     }
 
-    function autoDetectDongAndSave(imgUrl, defaultYear, lat, lng) {
-        showLoading("위치 분석 중...");
+    function autoDetectDongAndSave(imgUrl, lat, lng) {
+        showLoading("지역 분석 중...");
 
         geocoder.coord2RegionCode(lng, lat, function(result, status) {
             let detectedDong = "철산동";
@@ -792,16 +793,17 @@
                 }
             }
             hideLoading();
-            promptUserUploadMetadata(imgUrl, defaultYear, lat, lng, detectedDong);
+            promptUserUploadMetadata(imgUrl, lat, lng, detectedDong);
         });
     }
 
-    function promptUserUploadMetadata(imgUrl, defaultYear, lat, lng, detectedDong) {
+    function promptUserUploadMetadata(imgUrl, lat, lng, detectedDong) {
         const title = prompt("기록 사진의 제목을 입력해주세요:", "");
         if (!title) return;
 
         const desc = prompt("발견한 내용이나 메모를 남겨주세요:", "");
-        const year = prompt("촬영된 연도를 확인 또는 입력해주세요:", defaultYear || "2026");
+        const year = prompt("촬영된 연도를 입력해주세요 (예: 1985, 2026):", "2026");
+        if (!year) return;
         
         const author = prompt("도시기록가명을 입력해주세요:", "");
         if (!author) return;
