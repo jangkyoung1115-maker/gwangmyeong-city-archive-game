@@ -11,6 +11,8 @@
     <!-- Firebase SDK (v9 Compat) - Firestore 전용 -->
     <script src="https://www.gstatic.com/firebasejs/9.22.1/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/9.22.1/firebase-firestore-compat.js"></script>
+    <!-- exifr (GPS 및 촬영 날짜 추출) -->
+    <script src="https://cdn.jsdelivr.net/npm/exifr@7.1.3/dist/full.umd.js"></script>
 
     <style>
         * { box-sizing: border-box; margin: 0; padding: 0; font-family: 'Pretendard', sans-serif; }
@@ -82,25 +84,6 @@
             box-shadow: 0 2px 8px rgba(0,0,0,0.6); transition: all 0.2s ease;
         }
         #roadview-close-btn:hover { background: #ef4444; border-color: #ef4444; transform: scale(1.1); }
-
-        /* 지도 중앙 고정 핀 및 미니멀한 확인 버튼 */
-        #center-pin-container {
-            position: absolute; top: 50%; left: 50%; transform: translate(-50%, -100%);
-            z-index: 25; pointer-events: none; display: none; flex-direction: column; align-items: center;
-        }
-        #center-pin-container i { font-size: 2.2rem; color: #ef4444; filter: drop-shadow(0 4px 6px rgba(0,0,0,0.5)); animation: bouncePin 1s infinite alternate; }
-        @keyframes bouncePin { 0% { transform: translateY(0); } 100% { transform: translateY(-8px); } }
-
-        #location-pick-banner {
-            position: absolute; bottom: 16px; left: 50%; transform: translateX(-50%);
-            background: rgba(15, 17, 21, 0.95); border: 1px solid #3b82f6; padding: 6px;
-            border-radius: 20px; z-index: 30; display: none; box-shadow: 0 6px 20px rgba(0,0,0,0.7);
-        }
-        .pick-confirm-btn {
-            background: #2563eb; color: #fff; border: none; padding: 6px 16px; border-radius: 16px;
-            font-size: 0.75rem; font-weight: 800; cursor: pointer; transition: background 0.2s;
-        }
-        .pick-confirm-btn:hover { background: #1d4ed8; }
 
         .info-card {
             background: #1c212b; color: #fff; padding: 8px; border-radius: 6px;
@@ -192,7 +175,7 @@
         .strata-author { font-size: 0.68rem; color: #f59e0b; font-weight: 700; }
 
         .strata-img-wrap { position: relative; width: 100%; margin: 6px 0; border-radius: 6px; overflow: hidden; background: #000; }
-        .strata-img { width: 100%; max-height: 280px; object-fit: cover; display: block; cursor: pointer; filter: none; opacity: 1; }
+        .strata-img { width: 100%; max-height: 280px; object-fit: cover; display: block; cursor: pointer; }
 
         .strata-desc { font-size: 0.75rem; color: #d1d5db; line-height: 1.4; margin-bottom: 6px; }
 
@@ -229,20 +212,43 @@
 
         .empty-state { text-align: center; padding: 30px 10px; color: #6b7280; font-size: 0.78rem; }
 
+        /* 사진 다중 등록 모달 */
+        #upload-modal {
+            display: none; position: fixed; top: 0; left: 0; width: 100vw; height: 100vh;
+            background: rgba(0,0,0,0.85); z-index: 4000; align-items: center; justify-content: center; padding: 20px;
+        }
+        .upload-modal-content {
+            background: #1c212b; border: 1px solid #374151; border-radius: 12px; width: 100%; max-width: 400px;
+            padding: 20px; display: flex; flex-direction: column; gap: 10px; max-height: 90vh; overflow-y: auto;
+        }
+        .upload-modal-content h3 { font-size: 0.95rem; color: #60a5fa; margin-bottom: 4px; }
+        .preview-box { width: 100%; height: 160px; background: #000; border-radius: 6px; overflow: hidden; display: flex; align-items: center; justify-content: center; }
+        .preview-box img { width: 100%; height: 100%; object-fit: contain; }
+        .modal-input-group { display: flex; flex-direction: column; gap: 3px; }
+        .modal-input-group label { font-size: 0.7rem; color: #9ca3af; font-weight: 700; }
+        .modal-input-group input, .modal-input-group select, .modal-input-group textarea {
+            background: #14171d; border: 1px solid #374151; color: #fff; padding: 6px 8px; border-radius: 4px; font-size: 0.78rem; outline: none;
+        }
+        .modal-btn-row { display: flex; gap: 6px; margin-top: 6px; }
+        .modal-btn { flex: 1; padding: 8px; border-radius: 6px; font-weight: 700; font-size: 0.78rem; cursor: pointer; border: none; }
+        .modal-btn.cancel { background: #374151; color: #fff; }
+        .modal-btn.submit { background: #2563eb; color: #fff; }
+
+        /* 이미지 확대 모달 */
         #img-modal {
             display: none; position: fixed; top: 0; left: 0; width: 100vw; height: 100vh;
-            background: rgba(0,0,0,0.95); z-index: 2000; overflow: hidden; touch-action: none; user-select: none;
+            background: rgba(0,0,0,0.95); z-index: 5000; overflow: hidden; touch-action: none; user-select: none;
         }
-        .modal-controls { position: absolute; top: 16px; right: 20px; z-index: 2010; display: flex; gap: 8px; align-items: center; }
+        .modal-controls { position: absolute; top: 16px; right: 20px; z-index: 5010; display: flex; gap: 8px; align-items: center; }
         .zoom-btn { background: rgba(30, 41, 59, 0.9); border: 1px solid #475569; color: #fff; width: 36px; height: 36px; border-radius: 50%; font-size: 0.9rem; display: flex; align-items: center; justify-content: center; cursor: pointer; box-shadow: 0 4px 10px rgba(0,0,0,0.5); }
         #modal-close { background: rgba(239, 68, 68, 0.9); border: none; color: #fff; width: 36px; height: 36px; border-radius: 50%; font-size: 1.1rem; display: flex; align-items: center; justify-content: center; cursor: pointer; box-shadow: 0 4px 10px rgba(0,0,0,0.5); }
 
         .modal-viewport { width: 100%; height: 100%; display: flex; align-items: center; justify-content: center; overflow: hidden; cursor: grab; position: relative; }
         #modal-img { max-width: 90vw; max-height: 85vh; border-radius: 6px; border: 1.5px solid #3b82f6; transform-origin: center center; transition: transform 0.05s ease-out; will-change: transform; user-select: none; pointer-events: none; }
 
-        .zoom-hint { position: absolute; bottom: 16px; left: 50%; transform: translateX(-50%); background: rgba(0, 0, 0, 0.8); color: #9ca3af; padding: 6px 14px; border-radius: 16px; font-size: 0.72rem; pointer-events: none; z-index: 2010; }
+        .zoom-hint { position: absolute; bottom: 16px; left: 50%; transform: translateX(-50%); background: rgba(0, 0, 0, 0.8); color: #9ca3af; padding: 6px 14px; border-radius: 16px; font-size: 0.72rem; pointer-events: none; z-index: 5010; }
 
-        #loading-overlay { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.7); z-index: 3000; flex-direction: column; align-items: center; justify-content: center; color: #fff; font-weight: 700; gap: 10px; font-size: 0.85rem; }
+        #loading-overlay { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.7); z-index: 6000; flex-direction: column; align-items: center; justify-content: center; color: #fff; font-weight: 700; gap: 10px; font-size: 0.85rem; }
         .spinner { width: 32px; height: 32px; border: 3px solid rgba(255,255,255,0.2); border-top: 3px solid #60a5fa; border-radius: 50%; animation: spin 1s linear infinite; }
         @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
 
@@ -272,7 +278,7 @@
             <div class="scene-icon"><i class="fa-solid fa-book-open"></i></div>
             <div class="scene-title">기록 보관소 활용법</div>
             <div class="scene-desc">
-                사진을 선택한 뒤 지도를 움직여 중앙 핀으로 위치를 지정하고 기록을 남길 수 있습니다.
+                사진을 여러 장 선택하여 일괄 등록하거나, 지도의 중심 위치에 맞추어 기록을 남길 수 있습니다.
             </div>
         </div>
 
@@ -311,14 +317,6 @@
         <button id="roadview-close-btn" onclick="closeRoadviewMode()" title="지도로 돌아가기">
             &times;
         </button>
-
-        <!-- 지도 중앙 고정 핀 및 위치 지정 버튼 -->
-        <div id="center-pin-container">
-            <i class="fa-solid fa-location-dot"></i>
-        </div>
-        <div id="location-pick-banner">
-            <button class="pick-confirm-btn" onclick="confirmCenterLocation()">이 위치로 지정하기 ✨</button>
-        </div>
     </div>
 
     <div id="content-body">
@@ -341,16 +339,64 @@
                 <button class="cat-btn" onclick="filterDong('옥길동', this)">옥길동</button>
             </div>
 
+            <!-- multiple 속성을 추가하여 여러 장 동시 선택 가능 -->
             <button class="upload-btn" onclick="document.getElementById('file-input').click()">
-                <i class="fa-solid fa-camera-retro"></i> 발견한 기록 사진 올리기
+                <i class="fa-solid fa-camera-retro"></i> 발견한 기록 사진 올리기 (다중 선택 가능)
             </button>
-            <input type="file" id="file-input" accept="image/*" style="display:none;" onchange="handlePhotoSeedUpload(event)">
+            <input type="file" id="file-input" accept="image/*" multiple style="display:none;" onchange="handlePhotoSeedUpload(event)">
 
             <div class="strata-timeline" id="strata-list"></div>
         </div>
     </div>
 </div>
 
+<!-- 사진 등록 모달 (다중 업로드 시 순차 진행) -->
+<div id="upload-modal">
+    <div class="upload-modal-content">
+        <h3 id="modal-heading-text">✨ 새로운 시간 기록 등록</h3>
+        <div class="preview-box">
+            <img id="modal-preview-img" src="" alt="미리보기">
+        </div>
+        <div class="modal-input-group">
+            <label>기록 제목</label>
+            <input type="text" id="input-title" placeholder="예: 철산주공 옛 모습">
+        </div>
+        <div class="modal-input-group">
+            <label>추정 연도 (예: 1985)</label>
+            <input type="text" id="input-year" placeholder="1985">
+        </div>
+        <div class="modal-input-group">
+            <label>지역 선택</label>
+            <select id="input-dong">
+                <option value="철산동">철산동</option>
+                <option value="하안동">하안동</option>
+                <option value="소하동">소하동</option>
+                <option value="광명동">광명동</option>
+                <option value="일직동">일직동</option>
+                <option value="학온동">학온동</option>
+                <option value="옥길동">옥길동</option>
+            </select>
+        </div>
+        <div class="modal-input-group">
+            <label>작성자 이름</label>
+            <input type="text" id="input-author" placeholder="도시기록가">
+        </div>
+        <div class="modal-input-group">
+            <label>비밀번호 (수정/삭제용 4자리)</label>
+            <input type="password" id="input-password" maxlength="4" placeholder="1234">
+        </div>
+        <div class="modal-input-group">
+            <label>설명 및 기억</label>
+            <textarea id="input-desc" rows="3" placeholder="이 장소에 얽힌 기억이나 설명을 적어주세요."></textarea>
+        </div>
+        <div class="modal-btn-row">
+            <button class="modal-btn cancel" onclick="skipCurrentPhoto()">건너뛰기</button>
+            <button class="modal-btn submit" onclick="submitCurrentPhoto()">등록 완료</button>
+        </div>
+    </div>
+</div>
+
+<!-- 이미지 확대 모달 -->
 <div id="img-modal">
     <div class="modal-controls">
         <button class="zoom-btn" onclick="zoomIn()"><i class="fa-solid fa-magnifying-glass-plus"></i></button>
@@ -393,7 +439,10 @@
     let currentLatLng = null;
 
     let userStrataStore = [];
-    let pendingImageBase64 = null;
+    
+    // 다중 업로드 큐 관리 변수
+    let uploadQueue = [];
+    let currentUploadIndex = 0;
 
     let currentIntroScene = 1;
     const totalIntroScenes = 3;
@@ -401,13 +450,10 @@
     function nextIntroScene() {
         document.getElementById(`scene-${currentIntroScene}`).classList.remove('active');
         document.getElementById(`dot-${currentIntroScene}`).classList.remove('active');
-
         currentIntroScene++;
-
         if (currentIntroScene <= totalIntroScenes) {
             document.getElementById(`scene-${currentIntroScene}`).classList.add('active');
             document.getElementById(`dot-${currentIntroScene}`).classList.add('active');
-
             if (currentIntroScene === totalIntroScenes) {
                 document.getElementById('intro-next-btn').innerText = "시작하기 ✨";
             }
@@ -416,10 +462,7 @@
         }
     }
 
-    function skipIntro() {
-        finishIntro();
-    }
-
+    function skipIntro() { finishIntro(); }
     function finishIntro() {
         const intro = document.getElementById('intro-screen');
         intro.style.transition = 'opacity 0.5s ease';
@@ -469,9 +512,7 @@
         document.getElementById('loading-overlay').style.display = 'none';
     }
 
-    window.onload = function() {
-        initMap();
-    };
+    window.onload = function() { initMap(); };
 
     function initMap() {
         const container = document.getElementById('map');
@@ -505,7 +546,6 @@
                 document.getElementById('map').style.display = 'none';
                 document.getElementById('roadview').style.display = 'block';
                 document.getElementById('roadview-close-btn').style.display = 'flex';
-                
                 roadview.setPanoId(panoId, targetPos);
                 roadview.relayout();
             } else {
@@ -517,7 +557,6 @@
     function closeRoadviewMode() {
         document.getElementById('roadview').style.display = 'none';
         document.getElementById('roadview-close-btn').style.display = 'none';
-        
         document.getElementById('map').style.display = 'block';
         map.relayout();
     }
@@ -546,7 +585,6 @@
 
     function filterDong(dong, el) {
         selectedDong = dong;
-
         document.querySelectorAll('.cat-btn').forEach(btn => {
             if (btn.innerText.includes(dong) || (dong === 'ALL' && btn.innerText.includes('전체'))) {
                 btn.classList.add('active');
@@ -554,14 +592,11 @@
                 btn.classList.remove('active');
             }
         });
-
         const targetPos = DONG_COORDS[dong] || DONG_COORDS['ALL'];
         const moveLatLng = new kakao.maps.LatLng(targetPos.lat, targetPos.lng);
-        
         map.panTo(moveLatLng);
         map.setLevel(targetPos.level);
         currentLatLng = moveLatLng;
-
         renderStrataTimeline();
         updateMapMarkers();
     }
@@ -570,12 +605,7 @@
         const indicator = document.getElementById('slider-year-val');
         const decadeKey = DECADE_STEPS[valIndex] || 'ALL';
         selectedDecadeFilter = decadeKey;
-
-        if (decadeKey === 'ALL') {
-            indicator.innerText = "전체";
-        } else {
-            indicator.innerText = `${decadeKey}`;
-        }
+        indicator.innerText = (decadeKey === 'ALL') ? "전체" : `${decadeKey}`;
         renderStrataTimeline();
         updateMapMarkers();
     }
@@ -600,14 +630,10 @@
 
         filtered.forEach(item => {
             const markerPos = new kakao.maps.LatLng(item.lat, item.lng);
-            const marker = new kakao.maps.Marker({
-                position: markerPos,
-                map: map
-            });
+            const marker = new kakao.maps.Marker({ position: markerPos, map: map });
 
             kakao.maps.event.addListener(marker, 'click', () => {
                 if (activeInfoWindow) activeInfoWindow.close();
-
                 const contentHTML = `
                     <div class="info-card">
                         <img src="${item.imgUrl}" alt="기록 이미지">
@@ -618,14 +644,10 @@
                         </button>
                     </div>
                 `;
-                const infoWindow = new kakao.maps.InfoWindow({
-                    content: contentHTML,
-                    removable: true
-                });
+                const infoWindow = new kakao.maps.InfoWindow({ content: contentHTML, removable: true });
                 infoWindow.open(map, marker);
                 activeInfoWindow = infoWindow;
             });
-
             markersOnMap.push(marker);
         });
     }
@@ -683,12 +705,11 @@
                 </div>
 
                 <div class="card-footer-row">
-                    <button class="like-btn" onclick="pressLike('${item.id}')">
-                        <i class="fa-solid fa-heart"></i> 공감 <span id="like-count-${item.id}">${item.likes || 0}</span>
+                    <button class="like-btn" onclick="addLike('${item.id}')">
+                        <i class="fa-solid fa-heart"></i> 좋아요 <span id="like-count-${item.id}">${item.likes || 0}</span>
                     </button>
                     <div class="card-actions">
-                        <button class="act-btn" onclick="openRoadviewAt(${item.lat}, ${item.lng})"><i class="fa-solid fa-street-view"></i> 거리뷰</button>
-                        <button class="act-btn del" onclick="deleteRecord('${item.id}')"><i class="fa-solid fa-trash"></i> 삭제</button>
+                        <button class="act-btn del" onclick="deleteRecord('${item.id}')">삭제</button>
                     </div>
                 </div>
             `;
@@ -696,299 +717,201 @@
         });
     }
 
-    /* 🔥 부연 설명 없이 알림 없이 즉시 지도 핀 지정 모드로 전환 */
-    function handlePhotoSeedUpload(event) {
-        const file = event.target.files[0];
-        if (!file) return;
+    // 다중 파일 선택 처리 로직
+    async function handlePhotoSeedUpload(event) {
+        const files = event.target.files;
+        if (!files || files.length === 0) return;
 
-        showLoading("사진 준비 중...");
+        showLoading("사진 다중 분석 및 최적화 중...");
+        uploadQueue = [];
 
-        const img = new Image();
-        const objectUrl = URL.createObjectURL(file);
+        for (let i = 0; i < files.length; i++) {
+            const file = files[i];
+            let extractedYear = "2020";
+            let latLng = null;
 
-        img.onload = function() {
-            URL.revokeObjectURL(objectUrl);
             try {
-                const canvas = document.createElement('canvas');
-                const MAX_W = 800;
-                const MAX_H = 800;
-                let w = img.width;
-                let h = img.height;
-
-                if (w > h) {
-                    if (w > MAX_W) { h *= MAX_W / w; w = MAX_W; }
-                } else {
-                    if (h > MAX_H) { w *= MAX_H / h; h = MAX_H; }
+                const exifrData = await exifr.parse(file, ['DateTimeOriginal', 'CreateDate']);
+                const pDate = exifrData?.DateTimeOriginal || exifrData?.CreateDate;
+                if (pDate) {
+                    extractedYear = String(new Date(pDate).getFullYear());
                 }
+            } catch (e) {}
 
-                canvas.width = w;
-                canvas.height = h;
-                const ctx = canvas.getContext('2d');
-                ctx.drawImage(img, 0, 0, w, h);
+            try {
+                const gps = await exifr.gps(file);
+                if (gps && gps.latitude && gps.longitude) {
+                    latLng = new kakao.maps.LatLng(gps.latitude, gps.longitude);
+                }
+            } catch (e) {}
 
-                pendingImageBase64 = canvas.toDataURL('image/jpeg', 0.6);
-                hideLoading();
+            const base64Data = await readFileAsBase64(file);
+            uploadQueue.push({
+                imgUrl: base64Data,
+                year: extractedYear,
+                latLng: latLng
+            });
+        }
 
-                // 곧바로 지도 중앙 핀과 지정 버튼 표시
-                document.getElementById('center-pin-container').style.display = 'flex';
-                document.getElementById('location-pick-banner').style.display = 'flex';
-
-            } catch (err) {
-                hideLoading();
-                alert("이미지 처리 중 오류가 발생했습니다.");
-            }
-        };
-
-        img.onerror = function() {
-            URL.revokeObjectURL(objectUrl);
-            hideLoading();
-            alert("선택하신 사진 형식을 읽을 수 없습니다. 일반 JPG/PNG 사진으로 다시 시도해주세요.");
-        };
-
-        img.src = objectUrl;
+        hideLoading();
+        currentUploadIndex = 0;
+        processNextUploadQueue();
         event.target.value = '';
     }
 
-    function confirmCenterLocation() {
-        const center = map.getCenter();
-        const lat = center.getLat();
-        const lng = center.getLng();
-
-        document.getElementById('center-pin-container').style.display = 'none';
-        document.getElementById('location-pick-banner').style.display = 'none';
-
-        autoDetectDongAndSave(pendingImageBase64, lat, lng);
-        pendingImageBase64 = null;
-    }
-
-    function autoDetectDongAndSave(imgUrl, lat, lng) {
-        showLoading("지역 분석 중...");
-
-        geocoder.coord2RegionCode(lng, lat, function(result, status) {
-            let detectedDong = "철산동";
-            if (status === kakao.maps.services.Status.OK) {
-                for (let i = 0; i < result.length; i++) {
-                    if (result[i].region_type === 'H' || result[i].region_type === 'B') {
-                        const name = result[i].address_name;
-                        if (name.includes('철산')) { detectedDong = '철산동'; break; }
-                        else if (name.includes('하안')) { detectedDong = '하안동'; break; }
-                        else if (name.includes('소하')) { detectedDong = '소하동'; break; }
-                        else if (name.includes('광명')) { detectedDong = '광명동'; break; }
-                        else if (name.includes('일직')) { detectedDong = '일직동'; break; }
-                        else if (name.includes('학온')) { detectedDong = '학온동'; break; }
-                        else if (name.includes('옥길')) { detectedDong = '옥길동'; break; }
-                    }
-                }
-            }
-            hideLoading();
-            promptUserUploadMetadata(imgUrl, lat, lng, detectedDong);
+    function readFileAsBase64(file) {
+        return new Promise((resolve) => {
+            const reader = new FileReader();
+            reader.onload = (e) => resolve(e.target.result);
+            reader.readAsDataURL(file);
         });
     }
 
-    function promptUserUploadMetadata(imgUrl, lat, lng, detectedDong) {
-        const title = prompt("기록 사진의 제목을 입력해주세요:", "");
-        if (!title) return;
+    function processNextUploadQueue() {
+        if (currentUploadIndex >= uploadQueue.length) {
+            document.getElementById('upload-modal').style.display = 'none';
+            alert("선택하신 모든 사진이 성공적으로 등록되었습니다! ✨");
+            return;
+        }
 
-        const desc = prompt("발견한 내용이나 메모를 남겨주세요:", "");
-        const year = prompt("촬영된 연도를 입력해주세요 (예: 1985, 2026):", "2026");
-        if (!year) return;
-        
-        const author = prompt("도시기록가명을 입력해주세요:", "");
-        if (!author) return;
+        const currentItem = uploadQueue[currentUploadIndex];
+        document.getElementById('modal-heading-text').innerText = `✨ 새로운 시간 기록 등록 (${currentUploadIndex + 1}/${uploadQueue.length})`;
+        document.getElementById('modal-preview-img').src = currentItem.imgUrl;
+        document.getElementById('input-title').value = "광명의 옛 기억";
+        document.getElementById('input-year').value = currentItem.year;
+        document.getElementById('input-desc').value = "";
+        document.getElementById('input-password').value = "1234";
 
-        const password = prompt("기록 관리를 위한 비밀번호(4자리)를 입력해주세요:", "");
-        if (!password) return;
+        if (currentItem.latLng) {
+            currentLatLng = currentItem.latLng;
+            map.setCenter(currentLatLng);
+        }
 
-        const dataObj = {
-            title, desc, year, author, password,
-            dong: detectedDong || '철산동',
-            imgUrl,
-            lat,
-            lng,
+        document.getElementById('upload-modal').style.display = 'flex';
+    }
+
+    function submitCurrentPhoto() {
+        const title = document.getElementById('input-title').value.trim();
+        const year = document.getElementById('input-year').value.trim();
+        const dong = document.getElementById('input-dong').value;
+        const author = document.getElementById('input-author').value.trim() || '도시기록가';
+        const password = document.getElementById('input-password').value.trim();
+        const desc = document.getElementById('input-desc').value.trim();
+
+        if (!title || !year || !password) {
+            alert("제목, 추정 연도, 비밀번호는 필수 입력 항목입니다.");
+            return;
+        }
+
+        const currentItem = uploadQueue[currentUploadIndex];
+        const newRecord = {
+            title,
+            year,
+            dong,
+            author,
+            password,
+            desc,
+            imgUrl: currentItem.imgUrl,
+            lat: currentLatLng ? currentLatLng.getLat() : 37.4786,
+            lng: currentLatLng ? currentLatLng.getLng() : 126.8645,
             likes: 0,
-            comments: [],
-            createdAt: Date.now()
+            comments: []
         };
 
-        saveRecordToFirestore(dataObj);
+        db.collection("strata_records").add(newRecord).then(() => {
+            currentUploadIndex++;
+            processNextUploadQueue();
+        }).catch(err => {
+            alert("저장 실패: " + err.message);
+        });
     }
 
-    function saveRecordToFirestore(dataObj) {
-        showLoading("기록을 클라우드에 저장하는 중...");
-
-        const newId = 'record_' + Date.now();
-        db.collection("strata_records").doc(newId).set(dataObj)
-            .then(() => {
-                hideLoading();
-                alert(`[${dataObj.dong}] 지역에 기록이 성공적으로 등록되었습니다!`);
-                filterDong(dataObj.dong);
-            })
-            .catch(err => {
-                hideLoading();
-                alert("저장 중 오류 발생: " + err.message);
-            });
+    function skipCurrentPhoto() {
+        currentUploadIndex++;
+        processNextUploadQueue();
     }
 
-    function pressLike(id) {
-        const docRef = db.collection("strata_records").doc(id);
-        db.runTransaction(transaction => {
-            return transaction.get(docRef).then(doc => {
-                if (!doc.exists) throw "문서가 존재하지 않습니다.";
-                const newLikes = (doc.data().likes || 0) + 1;
-                transaction.update(docRef, { likes: newLikes });
-                return newLikes;
-            });
-        }).then(newLikes => {
-            const span = document.getElementById(`like-count-${id}`);
-            if (span) span.innerText = newLikes;
-        }).catch(err => console.log(err));
+    function addLike(id) {
+        const target = userStrataStore.find(item => item.id === id);
+        if (!target) return;
+        const currentLikes = (target.likes || 0) + 1;
+        db.collection("strata_records").doc(id).update({ likes: currentLikes }).catch(e => console.log(e));
     }
 
     function addComment(id) {
         const nameInput = document.getElementById(`c-name-${id}`);
         const textInput = document.getElementById(`c-text-${id}`);
-        const name = nameInput.value.trim();
+        const name = nameInput.value.trim() || '방문객';
         const text = textInput.value.trim();
+        if (!text) return;
 
-        if (!name || !text) {
-            alert("이름과 코멘트 내용을 모두 입력해주세요.");
-            return;
-        }
+        const target = userStrataStore.find(item => item.id === id);
+        if (!target) return;
 
-        const docRef = db.collection("strata_records").doc(id);
-        db.runTransaction(transaction => {
-            return transaction.get(docRef).then(doc => {
-                if (!doc.exists) throw "문서가 없습니다.";
-                const comments = doc.data().comments || [];
-                comments.push({ name, text });
-                transaction.update(docRef, { comments });
-                return comments;
-            });
-        }).then(() => {
+        const updatedComments = [...(target.comments || []), { name, text }];
+        db.collection("strata_records").doc(id).update({ comments: updatedComments }).then(() => {
             nameInput.value = '';
             textInput.value = '';
-        }).catch(err => alert("코멘트 저장 실패: " + err));
+        }).catch(e => alert("코멘트 등록 실패: " + e.message));
     }
 
     function deleteRecord(id) {
-        const pw = prompt("삭제를 위한 비밀번호를 입력해주세요:");
-        if (!pw) return;
+        const inputPw = prompt("기록을 삭제하려면 등록 시 설정한 비밀번호(4자리)를 입력하세요:");
+        if (!inputPw) return;
 
-        const target = userStrataStore.find(x => x.id === id);
+        const target = userStrataStore.find(item => item.id === id);
         if (!target) return;
 
-        if (target.password && target.password !== pw) {
-            alert("비밀번호가 일치하지 않습니다.");
+        if (target.password && target.password !== inputPw) {
+            alert("비밀번호가 일치하지 않습니다!");
             return;
         }
 
-        showLoading("기록을 삭제하는 중...");
-        db.collection("strata_records").doc(id).delete()
-            .then(() => {
-                hideLoading();
-                alert("기록이 삭제되었습니다.");
-            })
-            .catch(err => {
-                hideLoading();
-                alert("삭제 실패: " + err.message);
-            });
+        showLoading("기록 삭제 중...");
+        db.collection("strata_records").doc(id).delete().then(() => {
+            hideLoading();
+            alert("기록이 성공적으로 삭제되었습니다.");
+        }).catch(err => {
+            hideLoading();
+            alert("삭제 실패: " + err.message);
+        });
     }
 
-    /* 이미지 확대/축소 및 드래그 이동 상태 변수 */
-    let currentScale = 1;
-    let isDragging = false;
-    let startX = 0, startY = 0;
-    let translateX = 0, translateY = 0;
+    // 이미지 확대 모달 로직
+    let scale = 1, panning = false, pointX = 0, pointY = 0, startX = 0, startY = 0;
+    const modal = document.getElementById('img-modal');
+    const modalImg = document.getElementById('modal-img');
+    const viewport = document.getElementById('modal-viewport');
 
-    function openModal(imgUrl) {
-        const modal = document.getElementById('img-modal');
-        const img = document.getElementById('modal-img');
-        img.src = imgUrl;
-        resetZoom();
+    function openModal(imgSrc) {
+        modalImg.src = imgSrc;
         modal.style.display = 'block';
+        resetZoom();
     }
 
-    function closeModal() {
-        document.getElementById('img-modal').style.display = 'none';
-    }
-
-    function zoomIn() {
-        currentScale = Math.min(currentScale + 0.5, 5);
-        updateImageTransform();
-    }
-
-    function zoomOut() {
-        currentScale = Math.max(currentScale - 0.5, 1);
-        if (currentScale === 1) { translateX = 0; translateY = 0; }
-        updateImageTransform();
-    }
-
-    function resetZoom() {
-        currentScale = 1;
-        translateX = 0;
-        translateY = 0;
-        updateImageTransform();
-    }
-
-    function updateImageTransform() {
-        const img = document.getElementById('modal-img');
-        img.style.transform = `translate(${translateX}px, ${translateY}px) scale(${currentScale})`;
-    }
+    function closeModal() { modal.style.display = 'none'; }
+    function setTransform() { modalImg.style.transform = `translate(${pointX}px, ${pointY}px) scale(${scale})`; }
+    function zoomIn() { scale = Math.min(scale + 0.5, 5); setTransform(); }
+    function zoomOut() { scale = Math.max(scale - 0.5, 1); if(scale === 1) { pointX=0; pointY=0; } setTransform(); }
+    function resetZoom() { scale = 1; pointX = 0; pointY = 0; setTransform(); }
 
     function initModalZoomEvents() {
-        const viewport = document.getElementById('modal-viewport');
-        const img = document.getElementById('modal-img');
-
-        viewport.addEventListener('wheel', function(e) {
+        viewport.addEventListener('mousedown', (e) => {
+            if(scale > 1) { panning = true; startX = e.clientX - pointX; startY = e.clientY - pointY; viewport.style.cursor = 'grabbing'; }
+        });
+        window.addEventListener('mouseup', () => { panning = false; viewport.style.cursor = 'grab'; });
+        viewport.addEventListener('mousemove', (e) => {
+            if(!panning) return;
             e.preventDefault();
-            if (e.deltaY < 0) {
-                currentScale = Math.min(currentScale + 0.3, 5);
-            } else {
-                currentScale = Math.max(currentScale - 0.3, 1);
-                if (currentScale === 1) { translateX = 0; translateY = 0; }
-            }
-            updateImageTransform();
+            pointX = e.clientX - startX;
+            pointY = e.clientY - startY;
+            setTransform();
+        });
+        viewport.addEventListener('wheel', (e) => {
+            e.preventDefault();
+            if(e.deltaY < 0) zoomIn(); else zoomOut();
         }, { passive: false });
-
-        viewport.addEventListener('mousedown', function(e) {
-            isDragging = true;
-            startX = e.clientX - translateX;
-            startY = e.clientY - translateY;
-            viewport.style.cursor = 'grabbing';
-        });
-
-        window.addEventListener('mousemove', function(e) {
-            if (!isDragging) return;
-            translateX = e.clientX - startX;
-            translateY = e.clientY - startY;
-            updateImageTransform();
-        });
-
-        window.addEventListener('mouseup', function() {
-            isDragging = false;
-            viewport.style.cursor = 'grab';
-        });
-
-        viewport.addEventListener('touchstart', function(e) {
-            if (e.touches.length === 1) {
-                isDragging = true;
-                startX = e.touches[0].clientX - translateX;
-                startY = e.touches[0].clientY - translateY;
-            }
-        });
-
-        window.addEventListener('touchmove', function(e) {
-            if (!isDragging || e.touches.length !== 1) return;
-            translateX = e.touches[0].clientX - startX;
-            translateY = e.touches[0].clientY - startY;
-            updateImageTransform();
-        });
-
-        window.addEventListener('touchend', function() {
-            isDragging = false;
-        });
     }
 </script>
-
 </body>
 </html>
