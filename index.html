@@ -85,6 +85,25 @@
         }
         #roadview-close-btn:hover { background: #ef4444; border-color: #ef4444; transform: scale(1.1); }
 
+        /* 지도 중앙 고정 핀 및 위치 지정 배너 */
+        #center-pin-container {
+            position: absolute; top: 50%; left: 50%; transform: translate(-50%, -100%);
+            z-index: 25; pointer-events: none; display: none; flex-direction: column; align-items: center;
+        }
+        #center-pin-container i { font-size: 2.2rem; color: #ef4444; filter: drop-shadow(0 4px 6px rgba(0,0,0,0.5)); animation: bouncePin 1s infinite alternate; }
+        @keyframes bouncePin { 0% { transform: translateY(0); } 100% { transform: translateY(-8px); } }
+
+        #location-pick-banner {
+            position: absolute; bottom: 16px; left: 50%; transform: translateX(-50%);
+            background: rgba(15, 17, 21, 0.95); border: 1px solid #3b82f6; padding: 6px;
+            border-radius: 20px; z-index: 30; display: none; box-shadow: 0 6px 20px rgba(0,0,0,0.7);
+        }
+        .pick-confirm-btn {
+            background: #2563eb; color: #fff; border: none; padding: 6px 16px; border-radius: 16px;
+            font-size: 0.75rem; font-weight: 800; cursor: pointer; transition: background 0.2s;
+        }
+        .pick-confirm-btn:hover { background: #1d4ed8; }
+
         .info-card {
             background: #1c212b; color: #fff; padding: 8px; border-radius: 6px;
             box-shadow: 0 4px 12px rgba(0,0,0,0.5); width: 180px; text-align: center; font-size: 0.72rem;
@@ -212,7 +231,7 @@
 
         .empty-state { text-align: center; padding: 30px 10px; color: #6b7280; font-size: 0.78rem; }
 
-        /* 사진 다중 등록 모달 */
+        /* 사진 등록 모달 */
         #upload-modal {
             display: none; position: fixed; top: 0; left: 0; width: 100vw; height: 100vh;
             background: rgba(0,0,0,0.85); z-index: 4000; align-items: center; justify-content: center; padding: 20px;
@@ -278,7 +297,7 @@
             <div class="scene-icon"><i class="fa-solid fa-book-open"></i></div>
             <div class="scene-title">기록 보관소 활용법</div>
             <div class="scene-desc">
-                사진을 여러 장 선택하여 일괄 등록하거나, 지도의 중심 위치에 맞추어 기록을 남길 수 있습니다.
+                사진을 여러 장 선택하여 일괄 등록하거나, GPS가 없는 경우 지도를 움직여 위치를 지정할 수 있습니다.
             </div>
         </div>
 
@@ -317,6 +336,14 @@
         <button id="roadview-close-btn" onclick="closeRoadviewMode()" title="지도로 돌아가기">
             &times;
         </button>
+
+        <!-- 지도 중앙 고정 핀 및 수동 위치 지정 배너 -->
+        <div id="center-pin-container">
+            <i class="fa-solid fa-location-dot"></i>
+        </div>
+        <div id="location-pick-banner">
+            <button class="pick-confirm-btn" onclick="confirmManualLocation()">이 위치로 지정하기 ✨</button>
+        </div>
     </div>
 
     <div id="content-body">
@@ -339,7 +366,6 @@
                 <button class="cat-btn" onclick="filterDong('옥길동', this)">옥길동</button>
             </div>
 
-            <!-- multiple 속성을 추가하여 여러 장 동시 선택 가능 -->
             <button class="upload-btn" onclick="document.getElementById('file-input').click()">
                 <i class="fa-solid fa-camera-retro"></i> 발견한 기록 사진 올리기 (다중 선택 가능)
             </button>
@@ -350,7 +376,7 @@
     </div>
 </div>
 
-<!-- 사진 등록 모달 (다중 업로드 시 순차 진행) -->
+<!-- 사진 등록 모달 -->
 <div id="upload-modal">
     <div class="upload-modal-content">
         <h3 id="modal-heading-text">✨ 새로운 시간 기록 등록</h3>
@@ -382,7 +408,7 @@
             <input type="text" id="input-author" placeholder="도시기록가">
         </div>
         <div class="modal-input-group">
-            <label>비밀번호 (수정/삭제용 4자리)</label>
+            <label id="password-label">비밀번호 (수정/삭제용 4자리)</label>
             <input type="password" id="input-password" maxlength="4" placeholder="1234">
         </div>
         <div class="modal-input-group">
@@ -390,8 +416,8 @@
             <textarea id="input-desc" rows="3" placeholder="이 장소에 얽힌 기억이나 설명을 적어주세요."></textarea>
         </div>
         <div class="modal-btn-row">
-            <button class="modal-btn cancel" onclick="skipCurrentPhoto()">건너뛰기</button>
-            <button class="modal-btn submit" onclick="submitCurrentPhoto()">등록 완료</button>
+            <button class="modal-btn cancel" id="modal-cancel-btn" onclick="skipCurrentPhoto()">건너뛰기</button>
+            <button class="modal-btn submit" id="modal-submit-btn" onclick="submitCurrentPhoto()">등록 완료</button>
         </div>
     </div>
 </div>
@@ -440,8 +466,11 @@
 
     let userStrataStore = [];
     
+    // 다중 업로드 및 수동 위치 지정 제어 변수
     let uploadQueue = [];
     let currentUploadIndex = 0;
+    let isManualLocationSelecting = false;
+    let editingRecordId = null; // 수정 중인 기록 ID
 
     let currentIntroScene = 1;
     const totalIntroScenes = 3;
@@ -708,6 +737,7 @@
                         <i class="fa-solid fa-heart"></i> 좋아요 <span id="like-count-${item.id}">${item.likes || 0}</span>
                     </button>
                     <div class="card-actions">
+                        <button class="act-btn" onclick="openEditRecordModal('${item.id}')">수정</button>
                         <button class="act-btn del" onclick="deleteRecord('${item.id}')">삭제</button>
                     </div>
                 </div>
@@ -716,7 +746,7 @@
         });
     }
 
-    // 💡 이미지 용량 제한(1MB 미만)을 넘지 않도록 강력 압축하는 함수
+    // 이미지 용량 압축 함수
     function compressImage(file, maxWidth = 900, maxHeight = 900, quality = 0.6) {
         return new Promise((resolve) => {
             const reader = new FileReader();
@@ -744,7 +774,6 @@
                     const ctx = canvas.getContext('2d');
                     ctx.drawImage(img, 0, 0, width, height);
 
-                    // JPEG 포맷으로 압축률을 적용하여 Base64 변환 (1MB 이하로 철저히 방어)
                     resolve(canvas.toDataURL('image/jpeg', quality));
                 };
                 img.src = e.target.result;
@@ -753,13 +782,14 @@
         });
     }
 
-    // 다중 파일 선택 및 압축 처리 로직
+    // 다중 파일 선택 및 EXIF / GPS 분석 로직
     async function handlePhotoSeedUpload(event) {
         const files = event.target.files;
         if (!files || files.length === 0) return;
 
-        showLoading("사진 다중 분석 및 용량 최적화 중...");
+        showLoading("사진 분석 및 위치 확인 중...");
         uploadQueue = [];
+        editingRecordId = null;
 
         for (let i = 0; i < files.length; i++) {
             const file = files[i];
@@ -781,7 +811,6 @@
                 }
             } catch (e) {}
 
-            // 💡 1MB 이하로 안전하게 자동 압축 적용
             const compressedBase64 = await compressImage(file, 900, 900, 0.6);
 
             uploadQueue.push({
@@ -800,7 +829,7 @@
     function processNextUploadQueue() {
         if (currentUploadIndex >= uploadQueue.length) {
             document.getElementById('upload-modal').style.display = 'none';
-            alert("선택하신 모든 사진이 용량 제한 없이 안전하게 등록되었습니다! ✨");
+            alert("선택하신 모든 사진이 성공적으로 등록되었습니다! ✨");
             return;
         }
 
@@ -811,12 +840,39 @@
         document.getElementById('input-year').value = currentItem.year;
         document.getElementById('input-desc').value = "";
         document.getElementById('input-password').value = "1234";
+        document.getElementById('input-password').style.display = 'block';
+        document.getElementById('password-label').style.display = 'block';
+        document.getElementById('modal-cancel-btn').innerText = "건너뛰기";
 
         if (currentItem.latLng) {
+            // GPS가 있는 경우 자동 반영
             currentLatLng = currentItem.latLng;
             map.setCenter(currentLatLng);
+            document.getElementById('upload-modal').style.display = 'flex';
+        } else {
+            // GPS가 없는 경우 -> 수동 위치 지정 모드 진입
+            document.getElementById('upload-modal').style.display = 'none';
+            startManualLocationPickMode();
         }
+    }
 
+    // GPS 없을 때 수동으로 지도 위치 찍는 모드
+    function startManualLocationPickMode() {
+        isManualLocationSelecting = true;
+        document.getElementById('center-pin-container').style.display = 'flex';
+        document.getElementById('location-pick-banner').style.display = 'block';
+        alert("📍 사진에 위치(GPS) 정보가 없습니다.\n지도를 움직여 원하는 위치를 중앙에 맞춘 후 하단의 [이 위치로 지정하기] 버튼을 눌러주세요!");
+    }
+
+    function confirmManualLocation() {
+        if (!isManualLocationSelecting) return;
+        currentLatLng = map.getCenter();
+
+        isManualLocationSelecting = false;
+        document.getElementById('center-pin-container').style.display = 'none';
+        document.getElementById('location-pick-banner').style.display = 'none';
+
+        // 다시 등록 모달 띄우기
         document.getElementById('upload-modal').style.display = 'flex';
     }
 
@@ -833,32 +889,87 @@
             return;
         }
 
-        const currentItem = uploadQueue[currentUploadIndex];
-        const newRecord = {
-            title,
-            year,
-            dong,
-            author,
-            password,
-            desc,
-            imgUrl: currentItem.imgUrl,
-            lat: currentLatLng ? currentLatLng.getLat() : 37.4786,
-            lng: currentLatLng ? currentLatLng.getLng() : 126.8645,
-            likes: 0,
-            comments: []
-        };
+        if (editingRecordId) {
+            // 기존 기록 수정 모드
+            showLoading("기록 수정 중...");
+            db.collection("strata_records").doc(editingRecordId).update({
+                title, year, dong, author, desc
+            }).then(() => {
+                hideLoading();
+                document.getElementById('upload-modal').style.display = 'none';
+                alert("기록이 성공적으로 수정되었습니다.");
+                editingRecordId = null;
+            }).catch(err => {
+                hideLoading();
+                alert("수정 실패: " + err.message);
+            });
+        } else {
+            // 신규 다중 업로드 등록 모드
+            const currentItem = uploadQueue[currentUploadIndex];
+            const newRecord = {
+                title,
+                year,
+                dong,
+                author,
+                password,
+                desc,
+                imgUrl: currentItem.imgUrl,
+                lat: currentLatLng ? currentLatLng.getLat() : 37.4786,
+                lng: currentLatLng ? currentLatLng.getLng() : 126.8645,
+                likes: 0,
+                comments: []
+            };
 
-        db.collection("strata_records").add(newRecord).then(() => {
-            currentUploadIndex++;
-            processNextUploadQueue();
-        }).catch(err => {
-            alert("저장 실패: " + err.message);
-        });
+            showLoading("기록 저장 중...");
+            db.collection("strata_records").add(newRecord).then(() => {
+                hideLoading();
+                currentUploadIndex++;
+                processNextUploadQueue();
+            }).catch(err => {
+                hideLoading();
+                alert("저장 실패: " + err.message);
+            });
+        }
     }
 
     function skipCurrentPhoto() {
-        currentUploadIndex++;
-        processNextUploadQueue();
+        if (editingRecordId) {
+            document.getElementById('upload-modal').style.display = 'none';
+            editingRecordId = null;
+        } else {
+            currentUploadIndex++;
+            processNextUploadQueue();
+        }
+    }
+
+    // 기존 기록 수정 모달 열기
+    function openEditRecordModal(id) {
+        const inputPw = prompt("기록을 수정하려면 등록 시 설정한 비밀번호(4자리)를 입력하세요:");
+        if (!inputPw) return;
+
+        const target = userStrataStore.find(item => item.id === id);
+        if (!target) return;
+
+        if (target.password && target.password !== inputPw) {
+            alert("비밀번호가 일치하지 않습니다!");
+            return;
+        }
+
+        editingRecordId = id;
+        document.getElementById('modal-heading-text').innerText = "✏️ 시간 기록 수정하기";
+        document.getElementById('modal-preview-img').src = target.imgUrl;
+        document.getElementById('input-title').value = target.title || "";
+        document.getElementById('input-year').value = target.year || "";
+        document.getElementById('input-dong').value = target.dong || "철산동";
+        document.getElementById('input-author').value = target.author || "";
+        document.getElementById('input-desc').value = target.desc || "";
+        
+        // 수정 시에는 비밀번호 입력창 숨김
+        document.getElementById('input-password').style.display = 'none';
+        document.getElementById('password-label').style.display = 'none';
+        document.getElementById('modal-cancel-btn').innerText = "취소";
+
+        document.getElementById('upload-modal').style.display = 'flex';
     }
 
     function addLike(id) {
